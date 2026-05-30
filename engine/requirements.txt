@@ -10,3 +10,5 @@ bcrypt
 python-jose[cryptography]
 httpx
 pytest
+anthropic
+# openai  # uncomment when using AI_PROVIDER=openai or azure_openai
