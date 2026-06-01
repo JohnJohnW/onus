@@ -38,6 +38,16 @@ type CddCheck = {
   outcome: string;
   created_at: string;
 };
+type Alert = {
+  id: string;
+  indicator_key: string;
+  indicator_group: string;
+  severity: string;
+  narrative: string | null;
+  status: string;
+  smr_report_id: string | null;
+};
+export type Indicator = { group: string; group_label: string; key: string; label: string };
 export type ClientDetail = {
   id: string;
   type: string;
@@ -54,6 +64,7 @@ export type ClientDetail = {
   parties: Party[];
   matters: Matter[];
   cdd_checks: CddCheck[];
+  alerts: Alert[];
 };
 
 const field =
@@ -63,12 +74,163 @@ function titleize(s: string): string {
   return s.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }
 
+function MonitoringSection({
+  clientId,
+  alerts,
+  indicators,
+}: {
+  clientId: string;
+  alerts: Alert[];
+  indicators: Indicator[];
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    indicator_key: indicators[0]?.key ?? "",
+    severity: "medium",
+    narrative: "",
+  });
+  const labels = Object.fromEntries(indicators.map((i) => [i.key, i.label]));
+  const groups: { label: string; items: Indicator[] }[] = [];
+  for (const ind of indicators) {
+    let g = groups.find((x) => x.label === ind.group_label);
+    if (!g) {
+      g = { label: ind.group_label, items: [] };
+      groups.push(g);
+    }
+    g.items.push(ind);
+  }
+
+  async function post(path: string, body?: unknown) {
+    setBusy(true);
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+    setBusy(false);
+    if (res.ok) router.refresh();
+  }
+  async function raise(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.indicator_key) return;
+    await post("/api/alerts", {
+      client_id: clientId,
+      indicator_key: form.indicator_key,
+      severity: form.severity,
+      narrative: form.narrative || null,
+    });
+    setForm({ ...form, narrative: "" });
+  }
+
+  return (
+    <section className="mt-8">
+      <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
+        Monitoring &amp; suspicious activity
+      </h2>
+      <Card className="border-neutral-800 bg-neutral-900/50">
+        <CardContent className="p-5">
+          {alerts.length === 0 ? (
+            <p className="mb-4 text-sm text-neutral-500">No alerts raised.</p>
+          ) : (
+            <div className="mb-4 divide-y divide-neutral-800">
+              {alerts.map((a) => (
+                <div key={a.id} className="py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm text-neutral-200">
+                      {a.narrative || labels[a.indicator_key] || a.indicator_key}
+                      <span className="ml-2 text-xs text-neutral-500">({a.severity})</span>
+                    </p>
+                    <span
+                      className={
+                        a.status === "escalated_to_smr"
+                          ? "shrink-0 text-xs text-red-300"
+                          : a.status === "dismissed"
+                            ? "shrink-0 text-xs text-neutral-500"
+                            : "shrink-0 text-xs text-amber-400"
+                      }
+                    >
+                      {a.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  {(a.status === "open" || a.status === "reviewing") && (
+                    <div className="mt-1 flex gap-3">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => post(`/api/alerts/${a.id}/escalate`)}
+                        className="text-xs text-red-400 hover:text-red-300"
+                      >
+                        Escalate to SMR
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => post(`/api/alerts/${a.id}/dismiss`)}
+                        className="text-xs text-neutral-500 hover:text-neutral-300"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                  {a.status === "escalated_to_smr" && (
+                    <p className="mt-1 text-xs text-neutral-500">Draft SMR created — see Reporting.</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <form onSubmit={raise} className="space-y-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <select
+                value={form.indicator_key}
+                onChange={(e) => setForm({ ...form, indicator_key: e.target.value })}
+                className={field}
+              >
+                {groups.map((g) => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.items.map((i) => (
+                      <option key={i.key} value={i.key}>
+                        {i.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <select
+                value={form.severity}
+                onChange={(e) => setForm({ ...form, severity: e.target.value })}
+                className={field}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <input
+              value={form.narrative}
+              onChange={(e) => setForm({ ...form, narrative: e.target.value })}
+              placeholder="What did you observe? (optional)"
+              className={`${field} w-full`}
+            />
+            <Button type="submit" size="sm" variant="outline" disabled={busy}>
+              Raise alert
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
 export function ClientDetailView({
   client,
   services,
+  indicators,
 }: {
   client: ClientDetail;
   services: CatalogueItem[];
+  indicators: Indicator[];
 }) {
   const router = useRouter();
   const serviceLabels = Object.fromEntries(services.map((s) => [s.key, s.label]));
@@ -296,6 +458,8 @@ export function ClientDetailView({
           </CardContent>
         </Card>
       </section>
+
+      <MonitoringSection clientId={client.id} alerts={client.alerts} indicators={indicators} />
     </div>
   );
 }

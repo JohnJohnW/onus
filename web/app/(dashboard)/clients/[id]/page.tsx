@@ -1,4 +1,8 @@
-import { ClientDetailView, type ClientDetail } from "@/components/clients/client-detail";
+import {
+  ClientDetailView,
+  type ClientDetail,
+  type Indicator,
+} from "@/components/clients/client-detail";
 import { type CatalogueItem } from "@/components/clients/clients-list";
 import { auth } from "@/lib/auth";
 
@@ -29,9 +33,18 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       </div>
     );
   }
-  const meta = await getJson<{ designated_services: CatalogueItem[] }>("/clients/meta", token, {
-    designated_services: [],
-  });
+  const [meta, indicators] = await Promise.all([
+    getJson<{ designated_services: CatalogueItem[] }>("/clients/meta", token, {
+      designated_services: [],
+    }),
+    getJson<Indicator[]>("/alerts/indicators", token, []),
+  ]);
 
-  return <ClientDetailView client={client} services={meta.designated_services} />;
+  return (
+    <ClientDetailView
+      client={client}
+      services={meta.designated_services}
+      indicators={indicators}
+    />
+  );
 }
