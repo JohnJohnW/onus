@@ -1,23 +1,28 @@
-import { ProgramView, type Program } from "@/components/program/program-view";
+import {
+  ProgramView,
+  type Lifecycle,
+  type Program,
+} from "@/components/program/program-view";
 import { auth } from "@/lib/auth";
 
 const engineUrl = process.env.ENGINE_INTERNAL_URL ?? "http://localhost:8000";
 
-async function getProgram(token: string): Promise<Program | null> {
+async function getJson<T>(path: string, token: string, fallback: T): Promise<T> {
   try {
-    const res = await fetch(`${engineUrl}/program`, {
+    const res = await fetch(`${engineUrl}${path}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
-    return res.ok ? ((await res.json()) as Program) : null;
+    return res.ok ? ((await res.json()) as T) : fallback;
   } catch {
-    return null;
+    return fallback;
   }
 }
 
 export default async function ComplianceProgramPage() {
   const session = await auth();
-  const program = session?.access_token ? await getProgram(session.access_token) : null;
+  const token = session?.access_token;
+  const program = token ? await getJson<Program | null>("/program", token, null) : null;
 
   if (!program) {
     return (
@@ -30,5 +35,9 @@ export default async function ComplianceProgramPage() {
     );
   }
 
-  return <ProgramView program={program} />;
+  const lifecycle = token
+    ? await getJson<Lifecycle | null>("/program/lifecycle", token, null)
+    : null;
+
+  return <ProgramView program={program} lifecycle={lifecycle} />;
 }

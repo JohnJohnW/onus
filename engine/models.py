@@ -293,6 +293,27 @@ class Policy(Base):
     program = relationship("AmlProgram", back_populates="policies")
 
 
+class ProgramChangeLog(Base):
+    """A logged change to the program — review/update lifecycle (Act s26D; Step 4)."""
+
+    __tablename__ = "program_change_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    entity_type = Column(String, nullable=False)  # risk_assessment | policy | program
+    change_summary = Column(Text, nullable=False)
+    # significant_change | austrac_communication | three_year_review | evaluation_adverse_finding | other
+    trigger = Column(String, nullable=False, server_default="other")
+    is_material = Column(Boolean, nullable=False, server_default=text("false"))
+    documented = Column(Boolean, nullable=False, server_default=text("true"))
+    due_at = Column(DateTime(timezone=True), nullable=True)  # changed_at + 14 days (Rules s5-15)
+    approval_id = Column(UUID(as_uuid=True), ForeignKey("governance_approvals.id"), nullable=True)
+    governing_body_notified_at = Column(DateTime(timezone=True), nullable=True)
+    changed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    changed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class ComplianceDeadline(Base):
     __tablename__ = "compliance_deadlines"
 
