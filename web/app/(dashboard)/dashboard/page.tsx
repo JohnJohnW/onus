@@ -77,12 +77,12 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-3xl px-6 py-10">
       <header className="mb-10">
         <h1 className="text-2xl font-semibold tracking-tight">Good morning, {firstName}.</h1>
-        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-400">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-400">
           <span>{firmName ?? "Your firm"}</span>
           <span aria-hidden>·</span>
           <RiskBadge rating={rating} />
           <span>risk profile</span>
-        </p>
+        </div>
       </header>
 
       {/* Section 1 — Action required */}
