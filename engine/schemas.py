@@ -27,7 +27,7 @@ class UserOut(BaseModel):
 
     id: uuid.UUID
     email: str
-    full_name: str
+    full_name: Optional[str] = None
     role: str
     firm_id: uuid.UUID
 
@@ -37,6 +37,13 @@ class FirmOut(BaseModel):
 
     id: uuid.UUID
     name: str
+    abn: Optional[str] = None
+    firm_size: Optional[str] = None
+    practice_areas: Optional[List[str]] = None
+    onboarding_completed: bool
+    onboarding_step: int
+    austrac_enrolment_number: Optional[str] = None
+    enrolment_status: str
 
 
 class UserWithFirm(UserOut):
@@ -49,11 +56,43 @@ class AuthResponse(BaseModel):
     user: UserOut
 
 
+# ----- Onboarding requests -----
+
+class FirmUpdate(BaseModel):
+    abn: Optional[str] = None
+    firm_size: Optional[str] = None
+    practice_areas: Optional[List[str]] = None
+    austrac_enrolment_number: Optional[str] = None
+    enrolment_status: Optional[str] = None
+    onboarding_step: Optional[int] = None
+
+
+class GovernanceRolesRequest(BaseModel):
+    compliance_officer_user_id: Optional[uuid.UUID] = None
+    senior_manager_user_id: Optional[uuid.UUID] = None
+    onboarding_step: Optional[int] = None
+
+
+class ServicesRequest(BaseModel):
+    services: List[str] = []
+    onboarding_step: Optional[int] = None
+
+
+class CustomerTypesRequest(BaseModel):
+    customer_types: List[str] = []
+    onboarding_step: Optional[int] = None
+
+
+class DeliveryChannelsRequest(BaseModel):
+    channels: List[str] = []
+    onboarding_step: Optional[int] = None
+
+
 # ----- Dashboard -----
 
 class PendingActionOut(BaseModel):
     id: uuid.UUID
-    kind: str  # "approval" | "deadline"
+    kind: str
     title: str
     why: str
     estimate_label: Optional[str] = None
@@ -97,7 +136,7 @@ class RiskAssessmentOut(BaseModel):
     id: uuid.UUID
     status: str
     overall_rating: str
-    summary: str
+    summary: Optional[str] = None
     next_review_due: Optional[datetime] = None
     updated_at: datetime
     created_at: datetime

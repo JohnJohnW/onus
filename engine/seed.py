@@ -1,10 +1,9 @@
-"""Dev seed: populate a firm with realistic sample dashboard + risk data.
+"""Optional dev seed for a firm (NEW schema).
 
-Usage (inside the engine container):
-    python seed.py <user-email>
+Disabled by default so it can't interfere with onboarding testing — onboarding
+now generates real data. Run explicitly with --force:
 
-Idempotent: clears this firm's existing agent_tasks / approvals / deadlines /
-risk assessment first.
+    python seed.py <user-email> --force
 """
 from __future__ import annotations
 
@@ -15,14 +14,12 @@ from sqlalchemy import select
 
 from database import SessionLocal
 from models import (
-    AgentTask,
     ComplianceDeadline,
+    Firm,
     FirmRiskState,
-    GovernanceApproval,
     RiskAssessment,
-    RiskAssessmentChannel,
-    RiskAssessmentClientType,
-    RiskAssessmentCountry,
+    RiskAssessmentCustomerType,
+    RiskAssessmentDeliveryChannel,
     RiskAssessmentService,
     User,
 )
@@ -38,198 +35,45 @@ def main(email: str) -> None:
             return
         firm_id = user.firm_id
 
-        risk = db.scalar(select(FirmRiskState).where(FirmRiskState.firm_id == firm_id))
-        if risk is not None:
-            risk.risk_level = "medium"
-
-        # Clear prior seed data for this firm (idempotent re-seed).
-        for model in (AgentTask, GovernanceApproval, ComplianceDeadline, RiskAssessment):
+        for model in (ComplianceDeadline, RiskAssessment):
             for row in db.scalars(select(model).where(model.firm_id == firm_id)).all():
                 db.delete(row)
         db.flush()
 
-        db.add_all(
-            [
-                AgentTask(
-                    firm_id=firm_id,
-                    summary="Screened 4 new clients against sanctions and PEP watchlists. No matches found.",
-                    created_at=now - timedelta(minutes=35),
-                    human_action_required=False,
-                ),
-                AgentTask(
-                    firm_id=firm_id,
-                    summary="Flagged a high-value international transfer on the Meridian Holdings matter for enhanced due diligence.",
-                    created_at=now - timedelta(hours=2),
-                    human_action_required=True,
-                    human_action_outcome="Awaiting your review",
-                    status="awaiting_action",
-                ),
-                AgentTask(
-                    firm_id=firm_id,
-                    summary="Generated this quarter's AML/CTF compliance report and filed it to your records.",
-                    created_at=now - timedelta(hours=6),
-                    human_action_required=False,
-                    human_action_outcome="No action needed",
-                ),
-                AgentTask(
-                    firm_id=firm_id,
-                    summary="Identified a politically exposed person during new client intake and opened an EDD review.",
-                    created_at=now - timedelta(days=1, hours=3),
-                    human_action_required=True,
-                    human_action_outcome="Escalated to you",
-                    status="awaiting_action",
-                ),
-                AgentTask(
-                    firm_id=firm_id,
-                    summary="Refreshed the firm-wide ML/TF risk assessment after onboarding two corporate clients.",
-                    created_at=now - timedelta(days=2),
-                    human_action_required=False,
-                ),
-            ]
-        )
+        firm = db.get(Firm, firm_id)
+        firm.firm_size = firm.firm_size or "small"
+        firm.enrolment_status = "enrolled"
 
-        db.add_all(
-            [
-                GovernanceApproval(
-                    firm_id=firm_id,
-                    title="Approve the updated AML/CTF program",
-                    rationale="Your program must be reviewed and approved by the principal to stay compliant under the AML/CTF Act.",
-                    estimate_minutes=15,
-                    action_label="Review and approve",
-                    due_at=now + timedelta(days=5),
-                ),
-                GovernanceApproval(
-                    firm_id=firm_id,
-                    title="Sign off enhanced due diligence on Meridian Holdings",
-                    rationale="A high-risk client cannot proceed until the principal approves the enhanced due diligence findings.",
-                    estimate_minutes=10,
-                    action_label="Review and approve",
-                    due_at=now + timedelta(days=2),
-                ),
-            ]
-        )
+        ra = RiskAssessment(firm_id=firm_id, version=1, status="draft", overall_risk_rating="medium")
+        ra.services = [
+            RiskAssessmentService(firm_id=firm_id, designated_service_type="Company formation", inherent_risk_rating="high", explanation="Forming companies can hide who is really behind them."),
+            RiskAssessmentService(firm_id=firm_id, designated_service_type="Property transactions", inherent_risk_rating="medium", explanation="Property transfers are a common laundering channel."),
+        ]
+        ra.customer_types = [
+            RiskAssessmentCustomerType(firm_id=firm_id, customer_type="Overseas clients", inherent_risk_rating="high", explanation="Harder to verify, higher risk."),
+            RiskAssessmentCustomerType(firm_id=firm_id, customer_type="Individual people", inherent_risk_rating="low", explanation="Verifiable identities, lower risk."),
+        ]
+        ra.delivery_channels = [
+            RiskAssessmentDeliveryChannel(firm_id=firm_id, channel_type="Face to face always/usually", inherent_risk_rating="low", explanation="In-person verification is straightforward."),
+        ]
+        db.add(ra)
 
-        db.add_all(
-            [
-                ComplianceDeadline(
-                    firm_id=firm_id,
-                    name="Lodge AUSTRAC annual compliance report",
-                    description="The annual compliance report is due to AUSTRAC and must be lodged by the principal.",
-                    estimate_minutes=30,
-                    due_at=now + timedelta(days=9),
-                ),
-                ComplianceDeadline(
-                    firm_id=firm_id,
-                    name="Independent review of the AML/CTF program",
-                    due_at=now + timedelta(days=24),
-                ),
-                ComplianceDeadline(
-                    firm_id=firm_id,
-                    name="Refresh customer due diligence for ongoing clients",
-                    due_at=now + timedelta(days=46),
-                ),
-            ]
-        )
+        frs = db.scalar(select(FirmRiskState).where(FirmRiskState.firm_id == firm_id))
+        if frs is not None:
+            frs.overall_risk_rating = "medium"
 
-        assessment = RiskAssessment(
-            firm_id=firm_id,
-            status="draft",
-            overall_rating="medium",
-            summary=(
-                "Your firm's overall money-laundering and terrorism-financing risk is medium. "
-                "You take on some higher-risk work — like forming companies and trusts and holding "
-                "client money — so Onus applies extra checks on those matters. Your mostly local "
-                "client base and in-person onboarding keep your overall exposure manageable, as "
-                "long as those enhanced checks stay in place."
-            ),
-            next_review_due=now + timedelta(days=365),
-            created_at=now - timedelta(days=2),
-            updated_at=now - timedelta(days=2),
-        )
-        assessment.services = [
-            RiskAssessmentService(
-                firm_id=firm_id,
-                service_name="Conveyancing and real-estate transfers",
-                rating="medium",
-                explanation="Property transactions are a common way to move illicit funds, so these matters get closer scrutiny.",
-            ),
-            RiskAssessmentService(
-                firm_id=firm_id,
-                service_name="Forming companies and trusts",
-                rating="high",
-                explanation="Company and trust structures can hide who really owns assets, which makes this higher risk.",
-            ),
-            RiskAssessmentService(
-                firm_id=firm_id,
-                service_name="Holding or managing client money",
-                rating="high",
-                explanation="Handling client funds directly is one of the highest-risk activities a firm can undertake.",
-            ),
-            RiskAssessmentService(
-                firm_id=firm_id,
-                service_name="Acting as a registered office or agent",
-                rating="low",
-                explanation="Providing a registered address on its own carries little money-laundering risk.",
-            ),
-        ]
-        assessment.client_types = [
-            RiskAssessmentClientType(
-                firm_id=firm_id,
-                client_type="Established local individuals",
-                rating="low",
-                explanation="Long-standing local clients with clear identities are lower risk.",
-            ),
-            RiskAssessmentClientType(
-                firm_id=firm_id,
-                client_type="Domestic companies and trusts",
-                rating="medium",
-                explanation="Corporate clients need extra checks to confirm who ultimately controls them.",
-            ),
-            RiskAssessmentClientType(
-                firm_id=firm_id,
-                client_type="Overseas or non-resident clients",
-                rating="high",
-                explanation="Clients based overseas are harder to verify and carry higher risk.",
-            ),
-        ]
-        assessment.channels = [
-            RiskAssessmentChannel(
-                firm_id=firm_id,
-                channel="In-person onboarding",
-                rating="low",
-                explanation="Meeting clients face-to-face makes it easier to confirm who they are.",
-            ),
-            RiskAssessmentChannel(
-                firm_id=firm_id,
-                channel="Fully remote onboarding",
-                rating="medium",
-                explanation="Onboarding clients you never meet in person needs stronger identity checks.",
-            ),
-        ]
-        assessment.countries = [
-            RiskAssessmentCountry(
-                firm_id=firm_id,
-                country="British Virgin Islands",
-                rating="high",
-                explanation="A jurisdiction with limited transparency over who owns companies.",
-            ),
-            RiskAssessmentCountry(
-                firm_id=firm_id,
-                country="United Arab Emirates",
-                rating="medium",
-                explanation="Flagged for heightened monitoring on certain cross-border transactions.",
-            ),
-        ]
-        db.add(assessment)
-
+        db.add_all([
+            ComplianceDeadline(firm_id=firm_id, deadline_type="enrolment", due_at=now + timedelta(days=20)),
+            ComplianceDeadline(firm_id=firm_id, deadline_type="annual_report", due_at=now + timedelta(days=120)),
+        ])
         db.commit()
-        print(f"Seeded firm {firm_id} (user {email}) with sample dashboard + risk data.")
+        print(f"Seeded firm {firm_id} (user {email}).")
     finally:
         db.close()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python seed.py <user-email>")
-        raise SystemExit(1)
+    if len(sys.argv) < 2 or "--force" not in sys.argv:
+        print("Seeding is optional/disabled. To run: python seed.py <user-email> --force")
+        raise SystemExit(0)
     main(sys.argv[1])
