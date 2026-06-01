@@ -108,11 +108,11 @@ function ReportRow({ report }: { report: Report }) {
             {report.due_at && report.status !== "lodged" && (
               <>
                 Due {formatDate(report.due_at)}
-                {report.deadline_basis && ` · ${DEADLINE_LABELS[report.deadline_basis] ?? ""}`}
+                {report.deadline_basis && ` - ${DEADLINE_LABELS[report.deadline_basis] ?? ""}`}
               </>
             )}
             {report.status === "lodged" && report.reference_number && (
-              <>Lodged · ref {report.reference_number}</>
+              <>Lodged - ref {report.reference_number}</>
             )}
           </p>
         </div>
@@ -127,7 +127,7 @@ function ReportRow({ report }: { report: Report }) {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {report.type === "smr" && (
             <Button size="sm" variant="ghost" disabled={busy} onClick={draftNarrative}>
-              {busy ? "Drafting…" : "✨ Draft with Onus"}
+              {busy ? "Drafting..." : "Draft with Onus"}
             </Button>
           )}
           {report.status === "draft" && (
@@ -248,7 +248,7 @@ export function ReportingView({
                   value={form.grounds}
                   onChange={(e) => setForm({ ...form, grounds: e.target.value })}
                   rows={3}
-                  placeholder="Grounds for suspicion (required on the report)…"
+                  placeholder="Grounds for suspicion (required on the report)..."
                   className={`${field} w-full`}
                 />
                 <div className="flex flex-wrap gap-4 text-sm text-neutral-300">
@@ -271,7 +271,7 @@ export function ReportingView({
               <input
                 value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                placeholder="Physical-currency amount (AUD) — must be ≥ 10,000"
+                placeholder="Physical-currency amount (AUD) - must be >= 10,000"
                 inputMode="decimal"
                 className={`${field} w-full`}
               />
@@ -285,7 +285,7 @@ export function ReportingView({
               />
             )}
             <Button type="submit" size="sm" disabled={busy}>
-              {busy ? "Drafting…" : "Draft report"}
+              {busy ? "Drafting..." : "Draft report"}
             </Button>
           </form>
         </CardContent>
@@ -310,7 +310,7 @@ export function ReportingView({
       {/* Records */}
       <section>
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
-          Records — retention
+          Records - retention
         </h2>
         <Card className="border-neutral-800 bg-neutral-900/50">
           {records.length === 0 ? (

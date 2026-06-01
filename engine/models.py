@@ -1,4 +1,4 @@
-"""ORM models for Onus — corrected to the original data-model spec."""
+"""ORM models for Onus - corrected to the original data-model spec."""
 from __future__ import annotations
 
 import uuid
@@ -66,7 +66,7 @@ class GovernanceRole(Base):
     appointed_at = Column(DateTime(timezone=True), nullable=True)
     appointed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     is_active = Column(Boolean, nullable=False, server_default=text("true"))
-    # Eligibility (compliance officer — Act s26J; Rules s5-14)
+    # Eligibility (compliance officer - Act s26J; Rules s5-14)
     management_level = Column(Boolean, nullable=False, server_default=text("false"))
     is_australian_resident = Column(Boolean, nullable=False, server_default=text("false"))
     fit_and_proper_considered = Column(Boolean, nullable=False, server_default=text("false"))
@@ -100,7 +100,7 @@ class RiskAssessment(Base):
     status = Column(String, nullable=False, server_default="draft")  # draft | approved
     overall_risk_rating = Column(String, nullable=False, server_default="unassessed")
     summary = Column(Text, nullable=True)
-    # impact_only (low-complexity firms) | likelihood_x_impact (medium complexity) — Step 2 p.26
+    # impact_only (low-complexity firms) | likelihood_x_impact (medium complexity) - Step 2 p.26
     methodology = Column(String, nullable=False, server_default="impact_only")
     complexity_tier = Column(String, nullable=False, server_default="low")  # low | medium | high
     pf_assessed = Column(Boolean, nullable=False, server_default=text("false"))  # Act s26C(1)
@@ -197,7 +197,7 @@ class RiskAssessmentCountry(Base):
     country = Column(String, nullable=False)
     inherent_risk_rating = Column(String, nullable=False)
     explanation = Column(Text, nullable=True)
-    # Country-risk overrides — AUSTRAC "High-risk countries, regions and groups"
+    # Country-risk overrides - AUSTRAC "High-risk countries, regions and groups"
     basel_score = Column(Numeric(4, 2), nullable=True)  # Basel AML Index (Step 2 banding)
     fatf_listed = Column(Boolean, nullable=False, server_default=text("false"))
     sanctions_listed = Column(Boolean, nullable=False, server_default=text("false"))
@@ -240,7 +240,7 @@ class GovernanceApproval(Base):
     subject_type = Column(String, nullable=True)  # program | policy | risk_assessment | pep_relationship | ...
     subject_id = Column(UUID(as_uuid=True), nullable=True)
     escalation_reason = Column(Text, nullable=True)
-    # Who decided — name/role/date (s26P; Senior-manager guidance p.8)
+    # Who decided - name/role/date (s26P; Senior-manager guidance p.8)
     approved_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     approver_name = Column(String, nullable=True)
     approver_role = Column(String, nullable=True)
@@ -300,7 +300,7 @@ class Policy(Base):
 
 
 class ProgramChangeLog(Base):
-    """A logged change to the program — review/update lifecycle (Act s26D; Step 4)."""
+    """A logged change to the program - review/update lifecycle (Act s26D; Step 4)."""
 
     __tablename__ = "program_change_logs"
 
@@ -383,7 +383,7 @@ class AgentTask(Base):
 
 
 class Client(Base):
-    """A customer of the firm (Act Pt 2 — customer due diligence)."""
+    """A customer of the firm (Act Pt 2 - customer due diligence)."""
 
     __tablename__ = "clients"
 
@@ -437,7 +437,7 @@ class ClientParty(Base):
 
 
 class Matter(Base):
-    """A matter — a designated service provided to a client (Act s6 Tables 5/6)."""
+    """A matter - a designated service provided to a client (Act s6 Tables 5/6)."""
 
     __tablename__ = "matters"
 
@@ -478,7 +478,7 @@ class CddCheck(Base):
 
 
 class Report(Base):
-    """An AUSTRAC report — SMR / TTR / IFTI / annual compliance (Act Pt 3)."""
+    """An AUSTRAC report - SMR / TTR / IFTI / annual compliance (Act Pt 3)."""
 
     __tablename__ = "reports"
 
@@ -521,7 +521,7 @@ class ReportDecisionLog(Base):
 
 
 class Record(Base):
-    """Retention register — 7 years from one of four start events (Act ss107-116)."""
+    """Retention register - 7 years from one of four start events (Act ss107-116)."""
 
     __tablename__ = "records"
 
@@ -572,7 +572,7 @@ class IndependentEvaluation(Base):
 
 
 class Evaluator(Base):
-    """The evaluator — must be independent of the compliance function (Step 5 p.6)."""
+    """The evaluator - must be independent of the compliance function (Step 5 p.6)."""
 
     __tablename__ = "evaluators"
 
@@ -640,7 +640,7 @@ class EvaluationFinding(Base):
 
 
 class MonitoringAlert(Base):
-    """A suspicious-activity indicator raised on a client/matter (Risk insights §4)."""
+    """A suspicious-activity indicator raised on a client/matter (Risk insights section 4)."""
 
     __tablename__ = "monitoring_alerts"
 

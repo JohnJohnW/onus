@@ -1,4 +1,4 @@
-# Onus — local development stack
+# Onus - local development stack
 #
 #   web    : Next.js dev server (hot reload)        -> http://localhost:3000
 #   engine : FastAPI dev server (uvicorn --reload)  -> http://localhost:8000

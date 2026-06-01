@@ -83,13 +83,13 @@ export default async function DashboardPage() {
         <Greeting firstName={firstName} />
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-400">
           <span>{firmName ?? "Your firm"}</span>
-          <span aria-hidden>·</span>
+          <span aria-hidden>-</span>
           <RiskBadge rating={rating} />
           <span>risk profile</span>
         </div>
       </header>
 
-      {/* Section 1 — Action required */}
+      {/* Section 1 - Action required */}
       <Section title="Action required">
         {actions.length === 0 ? (
           <EmptyState>No action required right now. Onus is monitoring your firm.</EmptyState>
@@ -104,7 +104,7 @@ export default async function DashboardPage() {
                     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
                       {a.estimate_label && <span>{a.estimate_label}</span>}
                       {a.estimate_label && a.days_remaining !== null && (
-                        <span aria-hidden>·</span>
+                        <span aria-hidden>-</span>
                       )}
                       {a.days_remaining !== null && (
                         <span className={daysRemainingTone(a.days_remaining)}>
@@ -129,7 +129,7 @@ export default async function DashboardPage() {
         )}
       </Section>
 
-      {/* Section 2 — Onus activity */}
+      {/* Section 2 - Onus activity */}
       <Section title="Onus activity">
         {activity.length === 0 ? (
           <EmptyState>
@@ -148,7 +148,7 @@ export default async function DashboardPage() {
                   </div>
                   {t.human_action_required ? (
                     <p className="mt-2 text-xs text-amber-400">
-                      Needed your attention — {t.human_action_outcome ?? "awaiting review"}
+                      Needed your attention - {t.human_action_outcome ?? "awaiting review"}
                     </p>
                   ) : (
                     t.human_action_outcome && (
@@ -162,7 +162,7 @@ export default async function DashboardPage() {
         )}
       </Section>
 
-      {/* Section 3 — Upcoming deadlines */}
+      {/* Section 3 - Upcoming deadlines */}
       <Section title="Upcoming deadlines">
         {deadlines.length === 0 ? (
           <EmptyState>No upcoming deadlines.</EmptyState>

@@ -52,7 +52,7 @@ export function SettingsForm({ firm }: { firm: Firm }) {
       <div>
         <label htmlFor="firmSize" className={label}>Firm size</label>
         <select id="firmSize" value={firmSize} onChange={(e) => setFirmSize(e.target.value)} className={field}>
-          <option value="">Select…</option>
+          <option value="">Select...</option>
           {FIRM_SIZES.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
@@ -60,7 +60,7 @@ export function SettingsForm({ firm }: { firm: Firm }) {
       </div>
       <div className="flex items-center gap-3">
         <Button type="submit" size="sm" disabled={busy}>
-          {busy ? "Saving…" : "Save changes"}
+          {busy ? "Saving..." : "Save changes"}
         </Button>
         {message && <span className="text-xs text-neutral-400">{message}</span>}
       </div>

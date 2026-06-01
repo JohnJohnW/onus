@@ -1,4 +1,4 @@
-/** The Onus brand mark: a circular seal with a diamond aperture — a precise
+/** The Onus brand mark: a circular seal with a diamond aperture - a precise
  *  compliance stamp. Single-colour; inherits `currentColor`, so set the colour
  *  with a text class (e.g. text-neutral-50 on the dark chrome). */
 export function OnusMark({ className }: { className?: string }) {

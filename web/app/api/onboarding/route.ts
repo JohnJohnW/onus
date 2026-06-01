@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 
 const engineUrl = process.env.ENGINE_INTERNAL_URL ?? "http://localhost:8000";
 
-/** Server-side proxy for the onboarding wizard — keeps the JWT off the client. */
+/** Server-side proxy for the onboarding wizard - keeps the JWT off the client. */
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.access_token) {

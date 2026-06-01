@@ -1,4 +1,4 @@
-"""Audit trail — read the firm's audit log."""
+"""Audit trail - read the firm's audit log."""
 from __future__ import annotations
 
 from typing import List

@@ -83,7 +83,7 @@ function RoleRow({
         <div className="min-w-0">
           <p className="text-sm text-neutral-200">{def.label}</p>
           <p className="mt-0.5 text-xs text-neutral-500">
-            {holder ? (holder.full_name ?? holder.email) : "Unassigned"} · {def.hint}
+            {holder ? (holder.full_name ?? holder.email) : "Unassigned"} - {def.hint}
           </p>
         </div>
         <button
@@ -141,7 +141,7 @@ function RoleRow({
           />
           <div className="flex items-center gap-3">
             <Button size="sm" disabled={busy} onClick={assign}>
-              {busy ? "Saving…" : "Save"}
+              {busy ? "Saving..." : "Save"}
             </Button>
             {error && <span className="text-xs text-red-400">{error}</span>}
           </div>

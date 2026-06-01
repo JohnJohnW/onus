@@ -135,7 +135,7 @@ export function ClientsList({
                 </label>
               </div>
               <Button type="submit" size="sm" disabled={busy || !form.display_name.trim()}>
-                {busy ? "Adding…" : "Add client"}
+                {busy ? "Adding..." : "Add client"}
               </Button>
             </form>
           </CardContent>
@@ -168,7 +168,7 @@ export function ClientsList({
                     )}
                   </p>
                   <p className="mt-0.5 text-xs text-neutral-500">
-                    {labels[c.type] ?? c.type} · CDD: {cddLabel(c.cdd_status)}
+                    {labels[c.type] ?? c.type} - CDD: {cddLabel(c.cdd_status)}
                   </p>
                 </div>
                 <div className="shrink-0">

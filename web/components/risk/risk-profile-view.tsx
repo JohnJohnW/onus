@@ -122,7 +122,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
               {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button size="sm" onClick={approve} disabled={submitting}>
-                  {submitting ? "Approving…" : "Approve"}
+                  {submitting ? "Approving..." : "Approve"}
                 </Button>
                 <Button
                   size="sm"
@@ -150,7 +150,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
           )}
           {changeRequested && (
             <p className="mt-3 text-xs text-amber-200/80">
-              Your change request has been recorded — Onus will revisit the assessment.
+              Your change request has been recorded - Onus will revisit the assessment.
             </p>
           )}
         </div>
@@ -188,9 +188,9 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
             <span>
               Method:{" "}
               {assessment.methodology === "likelihood_x_impact"
-                ? "Likelihood × Impact"
+                ? "Likelihood x Impact"
                 : "Impact-based"}
-              {assessment.complexity_tier ? ` · ${assessment.complexity_tier} complexity` : ""}
+              {assessment.complexity_tier ? ` - ${assessment.complexity_tier} complexity` : ""}
             </span>
             <span>
               Proliferation financing:{" "}
@@ -276,7 +276,7 @@ function CategoryCard({
                     <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-neutral-600">
                       {item.likelihood && item.impact && (
                         <span>
-                          {prettyLevel(item.likelihood)} × {prettyLevel(item.impact)}
+                          {prettyLevel(item.likelihood)} x {prettyLevel(item.impact)}
                         </span>
                       )}
                       {item.data_source && <span>Source: {item.data_source}</span>}

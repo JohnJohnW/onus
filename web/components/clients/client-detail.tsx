@@ -174,7 +174,7 @@ function MonitoringSection({
                     </div>
                   )}
                   {a.status === "escalated_to_smr" && (
-                    <p className="mt-1 text-xs text-neutral-500">Draft SMR created — see Reporting.</p>
+                    <p className="mt-1 text-xs text-neutral-500">Draft SMR created - see Reporting.</p>
                   )}
                 </div>
               ))}
@@ -283,14 +283,14 @@ export function ClientDetailView({
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <Link href="/clients" className="text-xs text-neutral-500 hover:text-neutral-300">
-        ← Clients
+        Back to clients
       </Link>
       <header className="mb-6 mt-2 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{client.display_name}</h1>
           <p className="mt-1 text-sm text-neutral-400">
             {titleize(client.type)}
-            {client.is_pep && ` · ${titleize(client.pep_kind ?? "")} PEP`}
+            {client.is_pep && ` - ${titleize(client.pep_kind ?? "")} PEP`}
           </p>
         </div>
         <RiskBadge rating={client.risk_rating ?? "unassessed"} />
@@ -298,7 +298,7 @@ export function ClientDetailView({
 
       {client.sanctions_hit && (
         <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-          Sanctions match — you must not provide a designated service to this client. CDD is blocked.
+          Sanctions match - you must not provide a designated service to this client. CDD is blocked.
         </div>
       )}
 
@@ -313,8 +313,8 @@ export function ClientDetailView({
               <p className="text-neutral-200">Status: {titleize(client.cdd_status)}</p>
               {latestCdd && (
                 <p className="mt-1 text-xs text-neutral-500">
-                  {titleize(latestCdd.level)} CDD · {latestCdd.outcome}
-                  {latestCdd.edd_reason ? ` — ${latestCdd.edd_reason}` : ""}
+                  {titleize(latestCdd.level)} CDD - {latestCdd.outcome}
+                  {latestCdd.edd_reason ? ` - ${latestCdd.edd_reason}` : ""}
                 </p>
               )}
             </div>
@@ -342,7 +342,7 @@ export function ClientDetailView({
                       {p.name}
                       <span className="ml-2 text-xs text-neutral-500">
                         {titleize(p.role)}
-                        {p.bo_basis ? ` · ${titleize(p.bo_basis)}` : ""}
+                        {p.bo_basis ? ` - ${titleize(p.bo_basis)}` : ""}
                       </span>
                     </span>
                     <span className="flex gap-1.5">
@@ -370,9 +370,9 @@ export function ClientDetailView({
                   onChange={(e) => setParty({ ...party, bo_basis: e.target.value })}
                   className={field}
                 >
-                  <option value="ownership_25pct">Owns ≥ 25%</option>
+                  <option value="ownership_25pct">Owns 25% or more</option>
                   <option value="control">Controls</option>
-                  <option value="both">Owns ≥ 25% &amp; controls</option>
+                  <option value="both">Owns 25% or more &amp; controls</option>
                   <option value="ceo_fallback">CEO (fallback)</option>
                 </select>
               </div>
@@ -415,7 +415,7 @@ export function ClientDetailView({
                   <div key={m.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                     <span className="min-w-0 text-neutral-200">
                       {serviceLabels[m.designated_service_key] ?? m.designated_service_key}
-                      {m.description ? <span className="text-neutral-500"> — {m.description}</span> : ""}
+                      {m.description ? <span className="text-neutral-500"> - {m.description}</span> : ""}
                     </span>
                     <span
                       className={

@@ -1,4 +1,4 @@
-"""Dashboard endpoints — the principal's daily agent feed."""
+"""Dashboard endpoints - the principal's daily agent feed."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
