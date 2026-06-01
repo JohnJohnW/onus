@@ -34,6 +34,34 @@ export type Program = {
   roles: Role[];
 };
 
+type Trigger = {
+  id: string;
+  trigger_type: string;
+  description: string | null;
+  status: string;
+  review_required_by: string | null;
+};
+type Change = {
+  id: string;
+  entity_type: string;
+  change_summary: string;
+  trigger: string;
+  is_material: boolean;
+  documented: boolean;
+  due_at: string | null;
+  changed_at: string;
+};
+export type Lifecycle = {
+  next_review_due: string | null;
+  status: string;
+  open_triggers: Trigger[];
+  changes: Change[];
+};
+
+function humanize(s: string): string {
+  return s.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+}
+
 function titleize(s: string): string {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -123,7 +151,185 @@ function PolicyRow({ policy }: { policy: Policy }) {
   );
 }
 
-export function ProgramView({ program }: { program: Program }) {
+function LifecycleSection({ lifecycle }: { lifecycle: Lifecycle | null }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [change, setChange] = useState({
+    entity_type: "policy",
+    change_summary: "",
+    trigger: "significant_change",
+    is_material: false,
+  });
+  const [trig, setTrig] = useState({ trigger_type: "significant_change", description: "" });
+  const field =
+    "rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-600";
+
+  if (!lifecycle) return null;
+
+  async function logChange(e: React.FormEvent) {
+    e.preventDefault();
+    if (!change.change_summary.trim()) return;
+    setBusy(true);
+    await fetch("/api/program/changes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(change),
+    });
+    setBusy(false);
+    setChange({ ...change, change_summary: "" });
+    router.refresh();
+  }
+  async function flagReview(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    await fetch("/api/program/triggers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(trig),
+    });
+    setBusy(false);
+    setTrig({ ...trig, description: "" });
+    router.refresh();
+  }
+
+  return (
+    <section className="mt-8">
+      <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
+        Program lifecycle
+      </h2>
+      <Card className="border-neutral-800 bg-neutral-900/50">
+        <CardContent className="space-y-4 p-5">
+          <p className="text-sm text-neutral-300">
+            Next review due:{" "}
+            <span className="text-neutral-400">
+              {lifecycle.next_review_due ? formatDate(lifecycle.next_review_due) : "after approval"}
+            </span>{" "}
+            · reviewed at least every 3 years and on a trigger.
+          </p>
+
+          <div>
+            <p className="mb-1 text-xs uppercase tracking-wide text-neutral-500">
+              Open review triggers
+            </p>
+            {lifecycle.open_triggers.length === 0 ? (
+              <p className="text-sm text-neutral-500">None.</p>
+            ) : (
+              <ul className="space-y-1">
+                {lifecycle.open_triggers.map((t) => (
+                  <li key={t.id} className="text-sm text-amber-300">
+                    {humanize(t.trigger_type)}
+                    {t.description ? <span className="text-neutral-400"> — {t.description}</span> : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div>
+            <p className="mb-1 text-xs uppercase tracking-wide text-neutral-500">Change log</p>
+            {lifecycle.changes.length === 0 ? (
+              <p className="text-sm text-neutral-500">No changes logged.</p>
+            ) : (
+              <ul className="divide-y divide-neutral-800">
+                {lifecycle.changes.map((c) => (
+                  <li key={c.id} className="py-2 text-sm">
+                    <span className="text-neutral-200">{c.change_summary}</span>
+                    {c.is_material && (
+                      <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-300">
+                        Material · needs approval
+                      </span>
+                    )}
+                    <span className="ml-2 text-xs text-neutral-500">
+                      {humanize(c.entity_type)} · {humanize(c.trigger)} · {formatDate(c.changed_at)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <form onSubmit={logChange} className="space-y-2 border-t border-neutral-800 pt-3">
+            <p className="text-xs uppercase tracking-wide text-neutral-500">Log a change</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <select
+                value={change.entity_type}
+                onChange={(e) => setChange({ ...change, entity_type: e.target.value })}
+                className={field}
+              >
+                <option value="policy">Policy</option>
+                <option value="risk_assessment">Risk assessment</option>
+                <option value="program">Program</option>
+              </select>
+              <select
+                value={change.trigger}
+                onChange={(e) => setChange({ ...change, trigger: e.target.value })}
+                className={field}
+              >
+                <option value="significant_change">Significant change</option>
+                <option value="austrac_communication">AUSTRAC communication</option>
+                <option value="three_year_review">3-year review</option>
+                <option value="evaluation_adverse_finding">Evaluation finding</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <input
+              value={change.change_summary}
+              onChange={(e) => setChange({ ...change, change_summary: e.target.value })}
+              placeholder="What changed?"
+              className={`${field} w-full`}
+            />
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-neutral-300">
+                <input
+                  type="checkbox"
+                  checked={change.is_material}
+                  onChange={(e) => setChange({ ...change, is_material: e.target.checked })}
+                />
+                Material (needs senior-manager approval)
+              </label>
+              <Button type="submit" size="sm" variant="outline" disabled={busy}>
+                Log change
+              </Button>
+            </div>
+          </form>
+
+          <form onSubmit={flagReview} className="space-y-2 border-t border-neutral-800 pt-3">
+            <p className="text-xs uppercase tracking-wide text-neutral-500">Flag a review trigger</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <select
+                value={trig.trigger_type}
+                onChange={(e) => setTrig({ ...trig, trigger_type: e.target.value })}
+                className={field}
+              >
+                <option value="significant_change">Significant change</option>
+                <option value="austrac_communication">AUSTRAC communication</option>
+                <option value="new_service">New designated service</option>
+                <option value="new_country">New country dealt with</option>
+              </select>
+              <input
+                value={trig.description}
+                onChange={(e) => setTrig({ ...trig, description: e.target.value })}
+                placeholder="Describe the trigger"
+                className={field}
+              />
+            </div>
+            <Button type="submit" size="sm" variant="outline" disabled={busy}>
+              Flag for review
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
+export function ProgramView({
+  program,
+  lifecycle,
+}: {
+  program: Program;
+  lifecycle: Lifecycle | null;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -259,6 +465,8 @@ export function ProgramView({ program }: { program: Program }) {
           </CardContent>
         </Card>
       </section>
+
+      <LifecycleSection lifecycle={lifecycle} />
     </div>
   );
 }

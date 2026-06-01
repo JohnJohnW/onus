@@ -227,6 +227,19 @@ class GovernanceRoleOut(BaseModel):
     user_id: Optional[uuid.UUID] = None
     is_active: bool
     appointed_at: Optional[datetime] = None
+    management_level: bool = False
+    is_australian_resident: bool = False
+    fit_and_proper_considered: bool = False
+    qualifies_reason: Optional[str] = None
+
+
+class GovernanceAssignRequest(BaseModel):
+    role: str  # governing_body | senior_manager | compliance_officer | independent_evaluator
+    user_id: uuid.UUID
+    qualifies_reason: Optional[str] = None
+    management_level: bool = False
+    is_australian_resident: bool = False
+    fit_and_proper_considered: bool = False
 
 
 class FirmSettingsOut(BaseModel):
@@ -280,6 +293,45 @@ class ProgramOut(BaseModel):
 
 class ProgramApproveRequest(BaseModel):
     decision_reason: Optional[str] = None
+
+
+class ProgramChangeCreate(BaseModel):
+    entity_type: str  # risk_assessment | policy | program
+    change_summary: str
+    trigger: str = "other"
+    is_material: bool = False
+
+
+class ProgramChangeOut(BaseModel):
+    id: uuid.UUID
+    entity_type: str
+    change_summary: str
+    trigger: str
+    is_material: bool
+    documented: bool
+    due_at: Optional[datetime] = None
+    changed_at: datetime
+
+
+class ReviewTriggerCreate(BaseModel):
+    trigger_type: str
+    description: Optional[str] = None
+
+
+class ReviewTriggerOut(BaseModel):
+    id: uuid.UUID
+    trigger_type: str
+    description: Optional[str] = None
+    status: str
+    review_required_by: Optional[datetime] = None
+    created_at: datetime
+
+
+class ProgramLifecycleOut(BaseModel):
+    next_review_due: Optional[datetime] = None
+    status: str
+    open_triggers: List[ReviewTriggerOut]
+    changes: List[ProgramChangeOut]
 
 
 # ----- Clients & matters -----

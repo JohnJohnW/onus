@@ -423,6 +423,19 @@ function CommunicationsRegister({ initial }: { initial: Communication[] }) {
   );
 }
 
+async function exportRiskAssessment() {
+  const res = await fetch("/api/risk-assessment/export");
+  if (!res.ok) return;
+  const { filename, content } = await res.json();
+  const blob = new Blob([content ?? ""], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "risk-assessment.md";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function RiskEnhancements({
   assessment,
   communications,
@@ -432,6 +445,11 @@ export function RiskEnhancements({
 }) {
   return (
     <div className="mx-auto max-w-3xl space-y-10 px-6 pb-12">
+      <div className="flex justify-end">
+        <Button size="sm" variant="outline" onClick={exportRiskAssessment}>
+          Export risk assessment
+        </Button>
+      </div>
       <MethodologyControl assessment={assessment} />
       <CountryEditor countries={assessment.countries} />
       <PfCard assessment={assessment} />

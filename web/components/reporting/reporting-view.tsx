@@ -240,6 +240,7 @@ export function ReportingView({
               <option value="ttr">Threshold transaction report (TTR)</option>
               <option value="ifti">International funds transfer (IFTI)</option>
               <option value="annual_compliance">Annual compliance report</option>
+              <option value="cross_border_bni">Cross-border movement of BNIs</option>
             </select>
             {form.type === "smr" && (
               <>

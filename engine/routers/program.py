@@ -19,6 +19,8 @@ from models import (
     GovernanceApproval,
     GovernanceRole,
     Policy,
+    ProgramChangeLog,
+    ReviewTrigger,
     RiskAssessment,
     User,
 )
@@ -27,7 +29,12 @@ from schemas import (
     PolicyOut,
     PolicyUpdate,
     ProgramApproveRequest,
+    ProgramChangeCreate,
+    ProgramChangeOut,
+    ProgramLifecycleOut,
     ProgramOut,
+    ReviewTriggerCreate,
+    ReviewTriggerOut,
 )
 
 router = APIRouter()
@@ -273,3 +280,132 @@ def approve_program(
     db.commit()
     db.refresh(program)
     return _serialize(db, program, current_user.firm_id)
+
+
+def _trigger_out(t: ReviewTrigger) -> ReviewTriggerOut:
+    return ReviewTriggerOut(
+        id=t.id,
+        trigger_type=t.trigger_type,
+        description=t.description,
+        status=t.status,
+        review_required_by=t.review_required_by,
+        created_at=t.created_at,
+    )
+
+
+def _change_out(c: ProgramChangeLog) -> ProgramChangeOut:
+    return ProgramChangeOut(
+        id=c.id,
+        entity_type=c.entity_type,
+        change_summary=c.change_summary,
+        trigger=c.trigger,
+        is_material=c.is_material,
+        documented=c.documented,
+        due_at=c.due_at,
+        changed_at=c.changed_at,
+    )
+
+
+@router.get("/lifecycle", response_model=ProgramLifecycleOut)
+def get_lifecycle(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProgramLifecycleOut:
+    program = _get_or_create_program(db, current_user.firm_id)
+    triggers = db.scalars(
+        select(ReviewTrigger)
+        .where(ReviewTrigger.firm_id == current_user.firm_id, ReviewTrigger.status == "pending")
+        .order_by(ReviewTrigger.triggered_at.desc())
+    ).all()
+    changes = db.scalars(
+        select(ProgramChangeLog)
+        .where(ProgramChangeLog.firm_id == current_user.firm_id)
+        .order_by(ProgramChangeLog.changed_at.desc())
+        .limit(20)
+    ).all()
+    return ProgramLifecycleOut(
+        next_review_due=program.next_review_due_at,
+        status=program.status,
+        open_triggers=[_trigger_out(t) for t in triggers],
+        changes=[_change_out(c) for c in changes],
+    )
+
+
+@router.post("/changes", response_model=ProgramChangeOut)
+def log_change(
+    body: ProgramChangeCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProgramChangeOut:
+    """Log a program update; material changes need senior-manager approval (Step 4)."""
+    program = _get_or_create_program(db, current_user.firm_id)
+    now = datetime.now(timezone.utc)
+    change = ProgramChangeLog(
+        firm_id=current_user.firm_id,
+        entity_type=body.entity_type,
+        change_summary=body.change_summary,
+        trigger=body.trigger,
+        is_material=body.is_material,
+        documented=True,  # logging it here documents it (Rules s5-15: within 14 days)
+        due_at=now + timedelta(days=14),
+        changed_by_user_id=current_user.id,
+    )
+    db.add(change)
+    db.flush()
+    if body.is_material:
+        approval = GovernanceApproval(
+            firm_id=current_user.firm_id,
+            title="Approve program update",
+            rationale=f"A material change to the {body.entity_type.replace('_', ' ')} needs senior-manager approval (Act s26P).",
+            action_label="Review and approve",
+            status="pending",
+            subject_type="program",
+            subject_id=program.id,
+            due_at=now + timedelta(days=14),
+        )
+        db.add(approval)
+        db.flush()
+        change.approval_id = approval.id
+    db.add(
+        AuditLog(
+            firm_id=current_user.firm_id,
+            user_id=current_user.id,
+            action="program.change_logged",
+            entity_type="aml_program",
+            entity_id=program.id,
+            after_state={"trigger": body.trigger, "material": body.is_material},
+        )
+    )
+    db.commit()
+    db.refresh(change)
+    return _change_out(change)
+
+
+@router.post("/triggers", response_model=ReviewTriggerOut)
+def add_trigger(
+    body: ReviewTriggerCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReviewTriggerOut:
+    """Register a significant-change / AUSTRAC-communication review trigger (Step 4)."""
+    now = datetime.now(timezone.utc)
+    trigger = ReviewTrigger(
+        firm_id=current_user.firm_id,
+        trigger_type=body.trigger_type,
+        description=body.description,
+        review_required_by=now,
+    )
+    db.add(trigger)
+    db.flush()
+    db.add(
+        AuditLog(
+            firm_id=current_user.firm_id,
+            user_id=current_user.id,
+            action="program.review_triggered",
+            entity_type="review_trigger",
+            entity_id=trigger.id,
+        )
+    )
+    db.commit()
+    db.refresh(trigger)
+    return _trigger_out(trigger)

@@ -60,11 +60,17 @@ class GovernanceRole(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
-    role = Column(String, nullable=False)  # compliance_officer | senior_manager
+    # governing_body | senior_manager | compliance_officer | independent_evaluator
+    role = Column(String, nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     appointed_at = Column(DateTime(timezone=True), nullable=True)
     appointed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     is_active = Column(Boolean, nullable=False, server_default=text("true"))
+    # Eligibility (compliance officer — Act s26J; Rules s5-14)
+    management_level = Column(Boolean, nullable=False, server_default=text("false"))
+    is_australian_resident = Column(Boolean, nullable=False, server_default=text("false"))
+    fit_and_proper_considered = Column(Boolean, nullable=False, server_default=text("false"))
+    qualifies_reason = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
@@ -291,6 +297,27 @@ class Policy(Base):
     )
 
     program = relationship("AmlProgram", back_populates="policies")
+
+
+class ProgramChangeLog(Base):
+    """A logged change to the program — review/update lifecycle (Act s26D; Step 4)."""
+
+    __tablename__ = "program_change_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    entity_type = Column(String, nullable=False)  # risk_assessment | policy | program
+    change_summary = Column(Text, nullable=False)
+    # significant_change | austrac_communication | three_year_review | evaluation_adverse_finding | other
+    trigger = Column(String, nullable=False, server_default="other")
+    is_material = Column(Boolean, nullable=False, server_default=text("false"))
+    documented = Column(Boolean, nullable=False, server_default=text("true"))
+    due_at = Column(DateTime(timezone=True), nullable=True)  # changed_at + 14 days (Rules s5-15)
+    approval_id = Column(UUID(as_uuid=True), ForeignKey("governance_approvals.id"), nullable=True)
+    governing_body_notified_at = Column(DateTime(timezone=True), nullable=True)
+    changed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    changed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class ComplianceDeadline(Base):

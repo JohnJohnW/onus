@@ -1,3 +1,4 @@
+import { GovernancePanel } from "@/components/settings/governance-panel";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
@@ -15,7 +16,16 @@ type Firm = {
 type SettingsData = {
   firm: Firm;
   users: { id: string; email: string; full_name: string | null; role: string }[];
-  governance_roles: { id: string; role: string; is_active: boolean }[];
+  governance_roles: {
+    id: string;
+    role: string;
+    user_id: string | null;
+    is_active: boolean;
+    management_level: boolean;
+    is_australian_resident: boolean;
+    fit_and_proper_considered: boolean;
+    qualifies_reason: string | null;
+  }[];
 };
 
 async function getSettings(token: string, firmId: string): Promise<SettingsData | null> {
@@ -106,22 +116,7 @@ export default async function SettingsPage() {
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
           Governance roles
         </h2>
-        <Card className="border-neutral-800 bg-neutral-900/50">
-          <CardContent className="divide-y divide-neutral-800 p-0">
-            {governance_roles.map((r) => (
-              <div key={r.id} className="flex items-center justify-between gap-4 px-5 py-4">
-                <span className="text-sm text-neutral-200">{titleize(r.role)}</span>
-                <span
-                  className={
-                    r.is_active ? "text-xs text-emerald-400" : "text-xs text-neutral-500"
-                  }
-                >
-                  {r.is_active ? "Active" : "Inactive"}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <GovernancePanel users={users} roles={governance_roles} />
       </section>
     </div>
   );
