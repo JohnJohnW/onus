@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from database import get_db
-from models import AuditLog, CddCheck, Client, ClientParty, Matter, User
+from models import AuditLog, CddCheck, Client, ClientParty, Matter, MonitoringAlert, User
 from schemas import (
+    AlertOut,
     CatalogueItem,
     CddCheckOut,
     CddRequest,
@@ -115,6 +116,21 @@ def _cdd_out(c: CddCheck) -> CddCheckOut:
     return CddCheckOut(id=c.id, level=c.level, edd_reason=c.edd_reason, outcome=c.outcome, created_at=c.created_at)
 
 
+def alert_out(a: MonitoringAlert) -> AlertOut:
+    return AlertOut(
+        id=a.id,
+        client_id=a.client_id,
+        matter_id=a.matter_id,
+        indicator_key=a.indicator_key,
+        indicator_group=a.indicator_group,
+        severity=a.severity,
+        narrative=a.narrative,
+        status=a.status,
+        smr_report_id=a.smr_report_id,
+        created_at=a.created_at,
+    )
+
+
 def _detail(c: Client) -> ClientDetailOut:
     return ClientDetailOut(
         id=c.id,
@@ -132,6 +148,7 @@ def _detail(c: Client) -> ClientDetailOut:
         parties=[_party_out(p) for p in c.parties],
         matters=[_matter_out(m) for m in c.matters],
         cdd_checks=[_cdd_out(x) for x in sorted(c.cdd_checks, key=lambda x: x.created_at, reverse=True)],
+        alerts=[alert_out(a) for a in sorted(c.alerts, key=lambda a: a.created_at, reverse=True)],
     )
 
 

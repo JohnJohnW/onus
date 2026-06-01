@@ -381,6 +381,7 @@ class Client(Base):
     parties = relationship("ClientParty", back_populates="client", cascade="all, delete-orphan")
     matters = relationship("Matter", back_populates="client", cascade="all, delete-orphan")
     cdd_checks = relationship("CddCheck", back_populates="client", cascade="all, delete-orphan")
+    alerts = relationship("MonitoringAlert", cascade="all, delete-orphan")
 
 
 class ClientParty(Base):
@@ -460,6 +461,7 @@ class Report(Base):
     status = Column(String, nullable=False, server_default="draft")  # draft | ready | lodged | not_required
     related_client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True)
     related_matter_id = Column(UUID(as_uuid=True), ForeignKey("matters.id"), nullable=True)
+    related_alert_id = Column(UUID(as_uuid=True), ForeignKey("monitoring_alerts.id"), nullable=True)
     payload = Column(JSONB, nullable=True)
     deadline_basis = Column(String, nullable=True)
     lpp_claimed = Column(Boolean, nullable=False, server_default=text("false"))
@@ -608,3 +610,21 @@ class EvaluationFinding(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     evaluation = relationship("IndependentEvaluation", back_populates="findings")
+
+
+class MonitoringAlert(Base):
+    """A suspicious-activity indicator raised on a client/matter (Risk insights §4)."""
+
+    __tablename__ = "monitoring_alerts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False, index=True)
+    matter_id = Column(UUID(as_uuid=True), ForeignKey("matters.id"), nullable=True)
+    indicator_key = Column(String, nullable=False)
+    indicator_group = Column(String, nullable=False)
+    severity = Column(String, nullable=False, server_default="medium")  # low | medium | high
+    narrative = Column(Text, nullable=True)
+    status = Column(String, nullable=False, server_default="open")  # open|reviewing|escalated_to_smr|dismissed
+    smr_report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

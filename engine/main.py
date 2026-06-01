@@ -5,6 +5,7 @@ container startup — see docker-compose.yml), not create_all.
 """
 from fastapi import FastAPI
 
+from routers import alerts as alerts_router
 from routers import audit as audit_router
 from routers import auth as auth_router
 from routers import clients as clients_router
@@ -29,6 +30,7 @@ app.include_router(onboarding_router.router, prefix="/onboarding", tags=["onboar
 app.include_router(program_router.router, prefix="/program", tags=["program"])
 app.include_router(clients_router.router, prefix="/clients", tags=["clients"])
 app.include_router(clients_router.matters_router, prefix="/matters", tags=["matters"])
+app.include_router(alerts_router.router, prefix="/alerts", tags=["alerts"])
 app.include_router(reports_router.router, prefix="/reports", tags=["reports"])
 app.include_router(reports_router.records_router, prefix="/records", tags=["records"])
 app.include_router(evaluations_router.router, prefix="/evaluations", tags=["evaluations"])

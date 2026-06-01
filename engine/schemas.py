@@ -375,6 +375,44 @@ class ClientListItemOut(BaseModel):
     sanctions_hit: bool
 
 
+class AlertOut(BaseModel):
+    id: uuid.UUID
+    client_id: uuid.UUID
+    matter_id: Optional[uuid.UUID] = None
+    indicator_key: str
+    indicator_group: str
+    severity: str
+    narrative: Optional[str] = None
+    status: str
+    smr_report_id: Optional[uuid.UUID] = None
+    created_at: datetime
+
+
+class AlertCreate(BaseModel):
+    client_id: uuid.UUID
+    matter_id: Optional[uuid.UUID] = None
+    indicator_key: str
+    severity: str = "medium"
+    narrative: Optional[str] = None
+
+
+class IndicatorOut(BaseModel):
+    group: str
+    group_label: str
+    key: str
+    label: str
+
+
+class AlertEscalateRequest(BaseModel):
+    tf: bool = False
+    lpp_claimed: bool = False
+    reasoning: Optional[str] = None
+
+
+class AlertDismissRequest(BaseModel):
+    reasoning: Optional[str] = None
+
+
 class ClientDetailOut(BaseModel):
     id: uuid.UUID
     type: str
@@ -391,6 +429,7 @@ class ClientDetailOut(BaseModel):
     parties: List[PartyOut]
     matters: List[MatterOut]
     cdd_checks: List[CddCheckOut]
+    alerts: List[AlertOut] = []
 
 
 class CatalogueItem(BaseModel):
