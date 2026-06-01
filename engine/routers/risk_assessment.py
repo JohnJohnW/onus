@@ -1,7 +1,7 @@
 """Risk assessment — current state, onboarding inputs, and approval flow."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,10 +12,12 @@ from auth.dependencies import get_current_user
 from database import get_db
 from models import (
     AuditLog,
+    AustracCommunication,
     Firm,
     FirmRiskState,
     GovernanceApproval,
     RiskAssessment,
+    RiskAssessmentCountry,
     RiskAssessmentCustomerType,
     RiskAssessmentDeliveryChannel,
     RiskAssessmentService,
@@ -23,8 +25,14 @@ from models import (
     User,
 )
 from schemas import (
+    CommunicationIn,
+    CommunicationOut,
+    CountriesRequest,
+    CountryItemOut,
     CustomerTypesRequest,
     DeliveryChannelsRequest,
+    MethodologyRequest,
+    PfRequest,
     RiskAssessmentOut,
     RiskItemOut,
     ServicesRequest,
@@ -59,6 +67,80 @@ CHANNEL_RULES: dict[str, tuple[str, str]] = {
 }
 
 
+# ----- Scoring engine (Step 2) -----
+
+_RATING_ORDER = {"low": 0, "medium": 1, "high": 2}
+_INHERENT_MATRIX = {
+    ("very_likely", "low"): "medium", ("very_likely", "medium"): "high", ("very_likely", "high"): "high",
+    ("likely", "low"): "low", ("likely", "medium"): "medium", ("likely", "high"): "high",
+    ("not_likely", "low"): "low", ("not_likely", "medium"): "low", ("not_likely", "high"): "medium",
+}
+
+
+def _matrix_rating(likelihood: Optional[str], impact: Optional[str]) -> Optional[str]:
+    """3x3 inherent-risk matrix (Step 2 p.28) for likelihood_x_impact methodology."""
+    return _INHERENT_MATRIX.get((likelihood or "", impact or ""))
+
+
+def _basel_band(score) -> Optional[str]:
+    if score is None:
+        return None
+    s = float(score)
+    if s <= 5:
+        return "low"
+    if s <= 6:
+        return "medium"
+    return "high"
+
+
+def _country_rating(row: RiskAssessmentCountry) -> str:
+    """Force High on any AUSTRAC high-risk trigger, else Basel band (default low)."""
+    if (
+        row.fatf_listed
+        or row.sanctions_listed
+        or row.prescribed_foreign_country
+        or row.tax_haven
+        or row.terrorism_support
+    ):
+        return "high"
+    return _basel_band(row.basel_score) or "low"
+
+
+def _country_explanation(row: RiskAssessmentCountry) -> str:
+    reasons = []
+    if row.fatf_listed:
+        reasons.append("flagged by the FATF")
+    if row.sanctions_listed:
+        reasons.append("subject to Australian/UN sanctions")
+    if row.prescribed_foreign_country:
+        reasons.append("a prescribed foreign country")
+    if row.tax_haven:
+        reasons.append("a known tax haven")
+    if row.terrorism_support:
+        reasons.append("linked to terrorism financing")
+    if reasons:
+        return f"{row.country} is rated high risk — " + "; ".join(reasons) + "."
+    if row.basel_score is not None:
+        return f"{row.country} scored {row.basel_score} on the Basel AML Index ({_basel_band(row.basel_score)} risk)."
+    return f"{row.country} has no elevated country-risk indicators recorded."
+
+
+def _recompute_overall(db: Session, assessment_id) -> str:
+    """Overall = highest inherent rating across all four risk categories."""
+    best = -1
+    for model in (
+        RiskAssessmentService,
+        RiskAssessmentCustomerType,
+        RiskAssessmentDeliveryChannel,
+        RiskAssessmentCountry,
+    ):
+        for (rating,) in db.execute(
+            select(model.inherent_risk_rating).where(model.risk_assessment_id == assessment_id)
+        ).all():
+            best = max(best, _RATING_ORDER.get(rating, -1))
+    return {0: "low", 1: "medium", 2: "high"}.get(best, "unassessed")
+
+
 def _serialize(a: RiskAssessment, senior_manager_name: str) -> RiskAssessmentOut:
     def items(rows, name_attr):
         return [
@@ -67,6 +149,27 @@ def _serialize(a: RiskAssessment, senior_manager_name: str) -> RiskAssessmentOut
                 name=getattr(r, name_attr),
                 rating=r.inherent_risk_rating,
                 explanation=r.explanation or "",
+                likelihood=r.likelihood,
+                impact=r.impact,
+                data_source=r.data_source,
+                is_planned=r.is_planned,
+            )
+            for r in rows
+        ]
+
+    def country_items(rows):
+        return [
+            CountryItemOut(
+                id=r.id,
+                name=r.country,
+                rating=r.inherent_risk_rating,
+                explanation=r.explanation or "",
+                basel_score=float(r.basel_score) if r.basel_score is not None else None,
+                fatf_listed=r.fatf_listed,
+                sanctions_listed=r.sanctions_listed,
+                prescribed_foreign_country=r.prescribed_foreign_country,
+                tax_haven=r.tax_haven,
+                terrorism_support=r.terrorism_support,
             )
             for r in rows
         ]
@@ -76,6 +179,11 @@ def _serialize(a: RiskAssessment, senior_manager_name: str) -> RiskAssessmentOut
         status=a.status,
         overall_rating=a.overall_risk_rating,
         summary=a.summary,
+        methodology=a.methodology,
+        complexity_tier=a.complexity_tier,
+        pf_assessed=a.pf_assessed,
+        pf_risk_rating=a.pf_risk_rating,
+        pf_rationale=a.pf_rationale,
         next_review_due=a.next_review_due_at,
         updated_at=a.updated_at,
         created_at=a.created_at,
@@ -85,7 +193,7 @@ def _serialize(a: RiskAssessment, senior_manager_name: str) -> RiskAssessmentOut
         services=items(a.services, "designated_service_type"),
         client_types=items(a.customer_types, "customer_type"),
         channels=items(a.delivery_channels, "channel_type"),
-        countries=items(a.countries, "country"),
+        countries=country_items(a.countries),
     )
 
 
@@ -277,3 +385,174 @@ def request_changes(
     )
     db.commit()
     return {"status": "ok"}
+
+
+@router.post("/methodology", response_model=RiskAssessmentOut)
+def set_methodology(
+    body: MethodologyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RiskAssessmentOut:
+    if body.methodology not in ("impact_only", "likelihood_x_impact"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid methodology.")
+    assessment = _get_or_create(db, current_user.firm_id)
+    assessment.methodology = body.methodology
+    if body.complexity_tier in ("low", "medium", "high"):
+        assessment.complexity_tier = body.complexity_tier
+    db.commit()
+    fresh = _current(db, current_user.firm_id)
+    return _serialize(fresh, current_user.full_name or current_user.email)
+
+
+@router.put("/countries", response_model=RiskAssessmentOut)
+def set_countries(
+    body: CountriesRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RiskAssessmentOut:
+    """Set the country list with override flags; rating is computed (Step 2 pp.19-21)."""
+    firm_id = current_user.firm_id
+    assessment = _get_or_create(db, firm_id)
+    for row in list(assessment.countries):
+        db.delete(row)
+    db.flush()
+    for c in body.countries:
+        row = RiskAssessmentCountry(
+            risk_assessment_id=assessment.id,
+            firm_id=firm_id,
+            country=c.country,
+            basel_score=c.basel_score,
+            fatf_listed=c.fatf_listed,
+            sanctions_listed=c.sanctions_listed,
+            prescribed_foreign_country=c.prescribed_foreign_country,
+            tax_haven=c.tax_haven,
+            terrorism_support=c.terrorism_support,
+            inherent_risk_rating="low",
+            explanation="",
+        )
+        row.inherent_risk_rating = _country_rating(row)
+        row.explanation = _country_explanation(row)
+        db.add(row)
+    if body.onboarding_step is not None:
+        _set_step(db, firm_id, body.onboarding_step, body.onboarding_step)
+    db.flush()
+    assessment.overall_risk_rating = _recompute_overall(db, assessment.id)
+    db.commit()
+    fresh = _current(db, firm_id)
+    return _serialize(fresh, current_user.full_name or current_user.email)
+
+
+@router.post("/pf", response_model=RiskAssessmentOut)
+def set_proliferation_financing(
+    body: PfRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RiskAssessmentOut:
+    """Four-criterion PF screen (Step 2 pp.24-25; Act s26C(1))."""
+    assessment = _get_or_create(db, current_user.firm_id)
+    low = all(
+        [
+            body.australia_only_operations,
+            body.no_high_risk_jurisdiction_customers,
+            body.no_value_or_dual_use_goods_movement,
+            body.no_pf_relevant_service,
+        ]
+    )
+    assessment.pf_assessed = True
+    assessment.pf_risk_rating = "low" if low else "medium"
+    assessment.pf_rationale = (
+        "All four AUSTRAC 'lower PF risk' criteria are met — no separate proliferation-financing "
+        "policies required, but PF must still be recorded as assessed."
+        if low
+        else "One or more PF risk criteria are not met — assess proliferation-financing controls "
+        "and consider enhanced sanctions screening."
+    )
+    db.add(
+        AuditLog(
+            firm_id=current_user.firm_id,
+            user_id=current_user.id,
+            action="risk_assessment.pf_assessed",
+            entity_type="risk_assessment",
+            entity_id=assessment.id,
+            after_state={"pf_risk_rating": assessment.pf_risk_rating},
+        )
+    )
+    db.commit()
+    fresh = _current(db, current_user.firm_id)
+    return _serialize(fresh, current_user.full_name or current_user.email)
+
+
+def _comm_out(comm: AustracCommunication, reviewer: Optional[str]) -> CommunicationOut:
+    return CommunicationOut(
+        id=comm.id,
+        source_label=comm.source_label,
+        communicated_on=comm.communicated_on.isoformat() if comm.communicated_on else None,
+        relevance_note=comm.relevance_note,
+        change_made=comm.change_made,
+        considered_on=comm.considered_on.isoformat() if comm.considered_on else None,
+        reviewer=reviewer,
+        created_at=comm.created_at,
+    )
+
+
+@router.get("/communications", response_model=list[CommunicationOut])
+def list_communications(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[CommunicationOut]:
+    rows = db.scalars(
+        select(AustracCommunication)
+        .where(AustracCommunication.firm_id == current_user.firm_id)
+        .order_by(AustracCommunication.created_at.desc())
+    ).all()
+    reviewer_ids = {r.reviewer_user_id for r in rows if r.reviewer_user_id}
+    emails = {}
+    if reviewer_ids:
+        for u in db.scalars(select(User).where(User.id.in_(reviewer_ids))).all():
+            emails[u.id] = u.full_name or u.email
+    return [_comm_out(r, emails.get(r.reviewer_user_id)) for r in rows]
+
+
+@router.post("/communications", response_model=CommunicationOut)
+def add_communication(
+    body: CommunicationIn,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CommunicationOut:
+    """Log an AUSTRAC communication; raises a review trigger (Step 4)."""
+    try:
+        comm_date = date.fromisoformat(body.communicated_on) if body.communicated_on else None
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid date.")
+    now = datetime.now(timezone.utc)
+    trigger = ReviewTrigger(
+        firm_id=current_user.firm_id,
+        trigger_type="austrac_communication",
+        description=f"AUSTRAC communication logged: {body.source_label}.",
+        review_required_by=now,
+    )
+    db.add(trigger)
+    db.flush()
+    comm = AustracCommunication(
+        firm_id=current_user.firm_id,
+        source_label=body.source_label,
+        communicated_on=comm_date,
+        relevance_note=body.relevance_note,
+        change_made=body.change_made,
+        considered_on=now.date(),
+        reviewer_user_id=current_user.id,
+        review_trigger_id=trigger.id,
+    )
+    db.add(comm)
+    db.add(
+        AuditLog(
+            firm_id=current_user.firm_id,
+            user_id=current_user.id,
+            action="risk_assessment.austrac_communication_logged",
+            entity_type="risk_assessment",
+            entity_id=comm.id,
+        )
+    )
+    db.commit()
+    db.refresh(comm)
+    return _comm_out(comm, current_user.full_name or current_user.email)

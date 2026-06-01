@@ -132,6 +132,19 @@ class RiskItemOut(BaseModel):
     name: str
     rating: str
     explanation: str
+    likelihood: Optional[str] = None
+    impact: Optional[str] = None
+    data_source: Optional[str] = None
+    is_planned: bool = False
+
+
+class CountryItemOut(RiskItemOut):
+    basel_score: Optional[float] = None
+    fatf_listed: bool = False
+    sanctions_listed: bool = False
+    prescribed_foreign_country: bool = False
+    tax_haven: bool = False
+    terrorism_support: bool = False
 
 
 class RiskAssessmentOut(BaseModel):
@@ -139,6 +152,11 @@ class RiskAssessmentOut(BaseModel):
     status: str
     overall_rating: str
     summary: Optional[str] = None
+    methodology: str = "impact_only"
+    complexity_tier: str = "low"
+    pf_assessed: bool = False
+    pf_risk_rating: Optional[str] = None
+    pf_rationale: Optional[str] = None
     next_review_due: Optional[datetime] = None
     updated_at: datetime
     created_at: datetime
@@ -148,7 +166,55 @@ class RiskAssessmentOut(BaseModel):
     services: List[RiskItemOut]
     client_types: List[RiskItemOut]
     channels: List[RiskItemOut]
-    countries: List[RiskItemOut]
+    countries: List[CountryItemOut]
+
+
+# ----- Risk assessment: enhancement requests -----
+
+class CountryItemIn(BaseModel):
+    country: str
+    basel_score: Optional[float] = None
+    fatf_listed: bool = False
+    sanctions_listed: bool = False
+    prescribed_foreign_country: bool = False
+    tax_haven: bool = False
+    terrorism_support: bool = False
+
+
+class CountriesRequest(BaseModel):
+    countries: List[CountryItemIn] = []
+    onboarding_step: Optional[int] = None
+
+
+class PfRequest(BaseModel):
+    """Four-criterion proliferation-financing screen (Step 2 pp.24-25)."""
+    australia_only_operations: bool
+    no_high_risk_jurisdiction_customers: bool
+    no_value_or_dual_use_goods_movement: bool
+    no_pf_relevant_service: bool
+
+
+class MethodologyRequest(BaseModel):
+    methodology: str  # impact_only | likelihood_x_impact
+    complexity_tier: Optional[str] = None  # low | medium | high
+
+
+class CommunicationIn(BaseModel):
+    source_label: str
+    communicated_on: Optional[str] = None  # ISO date
+    relevance_note: Optional[str] = None
+    change_made: Optional[str] = None
+
+
+class CommunicationOut(BaseModel):
+    id: uuid.UUID
+    source_label: str
+    communicated_on: Optional[str] = None
+    relevance_note: Optional[str] = None
+    change_made: Optional[str] = None
+    considered_on: Optional[str] = None
+    reviewer: Optional[str] = None
+    created_at: datetime
 
 
 # ----- Settings & audit -----

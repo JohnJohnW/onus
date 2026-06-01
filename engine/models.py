@@ -6,9 +6,11 @@ import uuid
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
     func,
@@ -92,6 +94,12 @@ class RiskAssessment(Base):
     status = Column(String, nullable=False, server_default="draft")  # draft | approved
     overall_risk_rating = Column(String, nullable=False, server_default="unassessed")
     summary = Column(Text, nullable=True)
+    # impact_only (low-complexity firms) | likelihood_x_impact (medium complexity) — Step 2 p.26
+    methodology = Column(String, nullable=False, server_default="impact_only")
+    complexity_tier = Column(String, nullable=False, server_default="low")  # low | medium | high
+    pf_assessed = Column(Boolean, nullable=False, server_default=text("false"))  # Act s26C(1)
+    pf_risk_rating = Column(String, nullable=True)  # low | medium | high
+    pf_rationale = Column(Text, nullable=True)
     next_review_due_at = Column(DateTime(timezone=True), nullable=True)
     approved_by_name = Column(String, nullable=True)
     approved_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
@@ -126,6 +134,10 @@ class RiskAssessmentService(Base):
     designated_service_type = Column(String, nullable=False)
     inherent_risk_rating = Column(String, nullable=False)
     explanation = Column(Text, nullable=True)
+    likelihood = Column(String, nullable=True)  # not_likely | likely | very_likely
+    impact = Column(String, nullable=True)  # low | medium | high
+    data_source = Column(Text, nullable=True)  # rationale source (Step 2 p.30)
+    is_planned = Column(Boolean, nullable=False, server_default=text("false"))
 
     assessment = relationship("RiskAssessment", back_populates="services")
 
@@ -141,6 +153,10 @@ class RiskAssessmentCustomerType(Base):
     customer_type = Column(String, nullable=False)
     inherent_risk_rating = Column(String, nullable=False)
     explanation = Column(Text, nullable=True)
+    likelihood = Column(String, nullable=True)
+    impact = Column(String, nullable=True)
+    data_source = Column(Text, nullable=True)
+    is_planned = Column(Boolean, nullable=False, server_default=text("false"))
 
     assessment = relationship("RiskAssessment", back_populates="customer_types")
 
@@ -156,6 +172,10 @@ class RiskAssessmentDeliveryChannel(Base):
     channel_type = Column(String, nullable=False)
     inherent_risk_rating = Column(String, nullable=False)
     explanation = Column(Text, nullable=True)
+    likelihood = Column(String, nullable=True)
+    impact = Column(String, nullable=True)
+    data_source = Column(Text, nullable=True)
+    is_planned = Column(Boolean, nullable=False, server_default=text("false"))
 
     assessment = relationship("RiskAssessment", back_populates="delivery_channels")
 
@@ -171,8 +191,32 @@ class RiskAssessmentCountry(Base):
     country = Column(String, nullable=False)
     inherent_risk_rating = Column(String, nullable=False)
     explanation = Column(Text, nullable=True)
+    # Country-risk overrides — AUSTRAC "High-risk countries, regions and groups"
+    basel_score = Column(Numeric(4, 2), nullable=True)  # Basel AML Index (Step 2 banding)
+    fatf_listed = Column(Boolean, nullable=False, server_default=text("false"))
+    sanctions_listed = Column(Boolean, nullable=False, server_default=text("false"))
+    prescribed_foreign_country = Column(Boolean, nullable=False, server_default=text("false"))
+    tax_haven = Column(Boolean, nullable=False, server_default=text("false"))
+    terrorism_support = Column(Boolean, nullable=False, server_default=text("false"))
 
     assessment = relationship("RiskAssessment", back_populates="countries")
+
+
+class AustracCommunication(Base):
+    """The AUSTRAC communications register (Step 2 pp.22-23; Act s26C(3)(e))."""
+
+    __tablename__ = "austrac_communications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    source_label = Column(String, nullable=False)  # e.g. "ML NRA 2024", "AUSTRAC InBrief"
+    communicated_on = Column(Date, nullable=True)
+    relevance_note = Column(Text, nullable=True)  # why is it relevant?
+    change_made = Column(Text, nullable=True)  # what changed and how?
+    considered_on = Column(Date, nullable=True)
+    reviewer_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    review_trigger_id = Column(UUID(as_uuid=True), ForeignKey("review_triggers.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class GovernanceApproval(Base):
