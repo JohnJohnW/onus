@@ -9,13 +9,36 @@ import { Card, CardContent } from "@/components/ui/card";
 import { formatDate, relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-type RiskItem = { id: string; name: string; rating: string; explanation: string };
+export type RiskItem = {
+  id: string;
+  name: string;
+  rating: string;
+  explanation: string;
+  likelihood?: string | null;
+  impact?: string | null;
+  data_source?: string | null;
+  is_planned?: boolean;
+};
+
+export type CountryItem = RiskItem & {
+  basel_score?: number | null;
+  fatf_listed: boolean;
+  sanctions_listed: boolean;
+  prescribed_foreign_country: boolean;
+  tax_haven: boolean;
+  terrorism_support: boolean;
+};
 
 export type RiskAssessment = {
   id: string;
   status: string;
   overall_rating: string;
   summary: string;
+  methodology: string;
+  complexity_tier: string;
+  pf_assessed: boolean;
+  pf_risk_rating: string | null;
+  pf_rationale: string | null;
   next_review_due: string | null;
   updated_at: string;
   created_at: string;
@@ -25,8 +48,13 @@ export type RiskAssessment = {
   services: RiskItem[];
   client_types: RiskItem[];
   channels: RiskItem[];
-  countries: RiskItem[];
+  countries: CountryItem[];
 };
+
+function prettyLevel(s: string | null | undefined): string {
+  if (!s) return "";
+  return s.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+}
 
 const INDICATOR: Record<string, { ring: string; dot: string }> = {
   low: { ring: "bg-emerald-500/15", dot: "bg-emerald-500" },
@@ -156,6 +184,21 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
             </div>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-neutral-300">{assessment.summary}</p>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
+            <span>
+              Method:{" "}
+              {assessment.methodology === "likelihood_x_impact"
+                ? "Likelihood × Impact"
+                : "Impact-based"}
+              {assessment.complexity_tier ? ` · ${assessment.complexity_tier} complexity` : ""}
+            </span>
+            <span>
+              Proliferation financing:{" "}
+              {assessment.pf_assessed
+                ? (assessment.pf_risk_rating ?? "assessed")
+                : "not yet assessed"}
+            </span>
+          </div>
           <div className="mt-5">
             <Button
               variant="outline"
@@ -220,8 +263,25 @@ function CategoryCard({
             {items.map((item) => (
               <div key={item.id} className="flex items-start justify-between gap-4 px-5 py-4">
                 <div className="min-w-0">
-                  <p className="text-sm text-neutral-200">{item.name}</p>
+                  <p className="text-sm text-neutral-200">
+                    {item.name}
+                    {item.is_planned && (
+                      <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-300">
+                        Planned
+                      </span>
+                    )}
+                  </p>
                   <p className="mt-1 text-sm text-neutral-500">{item.explanation}</p>
+                  {(item.likelihood || item.data_source) && (
+                    <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-neutral-600">
+                      {item.likelihood && item.impact && (
+                        <span>
+                          {prettyLevel(item.likelihood)} × {prettyLevel(item.impact)}
+                        </span>
+                      )}
+                      {item.data_source && <span>Source: {item.data_source}</span>}
+                    </p>
+                  )}
                 </div>
                 <div className="shrink-0">
                   <RiskBadge rating={item.rating} />

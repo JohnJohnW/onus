@@ -1,24 +1,28 @@
+import { RiskEnhancements, type Communication } from "@/components/risk/risk-enhancements";
 import { RiskProfileView, type RiskAssessment } from "@/components/risk/risk-profile-view";
 import { auth } from "@/lib/auth";
 
 const engineUrl = process.env.ENGINE_INTERNAL_URL ?? "http://localhost:8000";
 
-async function getAssessment(token: string): Promise<RiskAssessment | null> {
+async function getJson<T>(path: string, token: string, fallback: T): Promise<T> {
   try {
-    const res = await fetch(`${engineUrl}/risk-assessment/current`, {
+    const res = await fetch(`${engineUrl}${path}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
-    return res.ok ? ((await res.json()) as RiskAssessment) : null;
+    return res.ok ? ((await res.json()) as T) : fallback;
   } catch {
-    return null;
+    return fallback;
   }
 }
 
 export default async function RiskProfilePage() {
   const session = await auth();
   const token = session?.access_token;
-  const assessment = token ? await getAssessment(token) : null;
+
+  const assessment = token
+    ? await getJson<RiskAssessment | null>("/risk-assessment/current", token, null)
+    : null;
 
   if (!assessment) {
     return (
@@ -31,5 +35,14 @@ export default async function RiskProfilePage() {
     );
   }
 
-  return <RiskProfileView assessment={assessment} />;
+  const communications = token
+    ? await getJson<Communication[]>("/risk-assessment/communications", token, [])
+    : [];
+
+  return (
+    <>
+      <RiskProfileView assessment={assessment} />
+      <RiskEnhancements assessment={assessment} communications={communications} />
+    </>
+  );
 }
