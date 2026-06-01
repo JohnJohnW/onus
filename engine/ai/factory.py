@@ -26,6 +26,10 @@ def get_ai_provider() -> AIProvider:
         )
 
     key = provider.strip().lower()
+    if key == "mock":  # deterministic provider for tests / offline dev (not advertised)
+        from ai.providers.mock import MockProvider
+
+        return MockProvider()
     if key == "anthropic":
         from ai.providers.anthropic import AnthropicProvider
 

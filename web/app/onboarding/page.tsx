@@ -1,25 +1,39 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
+import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 import { auth } from "@/lib/auth";
+
+const engineUrl = process.env.ENGINE_INTERNAL_URL ?? "http://localhost:8000";
 
 export default async function OnboardingPage() {
   const session = await auth();
-  const firstName = (session?.user?.name ?? "").trim().split(" ")[0] || "there";
+  if (!session?.access_token) {
+    redirect("/login");
+  }
+
+  let completed = false;
+  let initialStep = 0;
+  try {
+    const res = await fetch(`${engineUrl}/auth/me`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const me = await res.json();
+      completed = me?.firm?.onboarding_completed === true;
+      initialStep = me?.firm?.onboarding_step ?? 0;
+    }
+  } catch {
+    // fall through and show the wizard from the start
+  }
+
+  if (completed) {
+    redirect("/dashboard");
+  }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center bg-neutral-950 px-6 text-center text-neutral-100">
-      <span className="mb-8 text-2xl font-semibold tracking-tight">Onus</span>
-      <h1 className="text-xl font-medium">Welcome, {firstName}.</h1>
-      <p className="mt-2 max-w-sm text-sm text-neutral-400">
-        Your firm is set up. This is where Onus will walk you through standing up your AML/CTF
-        program.
-      </p>
-      <Link
-        href="/dashboard"
-        className="mt-8 rounded-md bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-900 transition hover:bg-white"
-      >
-        Continue to dashboard
-      </Link>
-    </div>
+    <main className="min-h-screen bg-neutral-950 text-neutral-100">
+      <OnboardingWizard initialStep={initialStep} />
+    </main>
   );
 }

@@ -1,5 +1,8 @@
+import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Greeting } from "@/components/dashboard/greeting";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { auth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -14,6 +17,7 @@ type PendingAction = {
   why: string;
   estimate_label: string | null;
   action_label: string;
+  href: string | null;
   due_at: string | null;
   days_remaining: number | null;
 };
@@ -76,13 +80,13 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <header className="mb-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Good morning, {firstName}.</h1>
-        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-400">
+        <Greeting firstName={firstName} />
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-400">
           <span>{firmName ?? "Your firm"}</span>
           <span aria-hidden>·</span>
           <RiskBadge rating={rating} />
           <span>risk profile</span>
-        </p>
+        </div>
       </header>
 
       {/* Section 1 — Action required */}
@@ -109,9 +113,15 @@ export default async function DashboardPage() {
                       )}
                     </div>
                   </div>
-                  <Button size="sm" className="shrink-0">
-                    {a.action_label}
-                  </Button>
+                  {a.href ? (
+                    <Button asChild size="sm" className="shrink-0">
+                      <Link href={a.href}>{a.action_label}</Link>
+                    </Button>
+                  ) : (
+                    <Button size="sm" className="shrink-0">
+                      {a.action_label}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}

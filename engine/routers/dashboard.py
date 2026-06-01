@@ -28,6 +28,34 @@ router = APIRouter()
 
 ACTION_WINDOW_DAYS = 14
 
+DEADLINE_LABELS = {
+    "enrolment": "Enrol your firm with AUSTRAC",
+    "annual_report": "Lodge your annual compliance report",
+    "risk_assessment_review": "Review your firm's risk assessment",
+    "independent_evaluation": "Independent evaluation of your AML/CTF program",
+}
+
+
+def _deadline_label(deadline_type: str) -> str:
+    return DEADLINE_LABELS.get(deadline_type, deadline_type.replace("_", " ").capitalize())
+
+
+DEADLINE_HREFS = {
+    "enrolment": "/settings",
+    "annual_report": "/reporting",
+    "risk_assessment_review": "/risk-profile",
+    "independent_evaluation": "/evaluation",
+}
+
+
+def _deadline_href(deadline_type: str) -> str:
+    return DEADLINE_HREFS.get(deadline_type, "/dashboard")
+
+
+def _task_summary(task: AgentTask) -> str:
+    base = (task.task_type or task.agent_type or "Task").replace("_", " ").strip()
+    return base[:1].upper() + base[1:] if base else "Task"
+
 
 def _days_remaining(due_at: Optional[datetime], now: datetime) -> Optional[int]:
     if due_at is None:
@@ -58,9 +86,9 @@ def summary(
     cutoff = now + timedelta(days=ACTION_WINDOW_DAYS)
 
     risk = db.scalar(select(FirmRiskState).where(FirmRiskState.firm_id == firm_id))
-    rating = risk.risk_level if risk else "unassessed"
+    rating = risk.overall_risk_rating if risk else "unassessed"
 
-    # --- Section 1: Action required (pending approvals + deadlines due within 14 days) ---
+    # --- Section 1: Action required ---
     approvals = db.scalars(
         select(GovernanceApproval)
         .where(
@@ -71,7 +99,6 @@ def summary(
         )
         .order_by(GovernanceApproval.due_at.asc())
     ).all()
-
     action_deadlines = db.scalars(
         select(ComplianceDeadline)
         .where(
@@ -92,6 +119,7 @@ def summary(
                 why=a.rationale,
                 estimate_label=_estimate_label(a.estimate_minutes),
                 action_label=a.action_label,
+                href="/compliance-program" if a.subject_type == "program" else "/risk-profile",
                 due_at=a.due_at,
                 days_remaining=_days_remaining(a.due_at, now),
             )
@@ -101,19 +129,18 @@ def summary(
             PendingActionOut(
                 id=d.id,
                 kind="deadline",
-                title=d.name,
-                why=d.description or "A compliance deadline is approaching.",
-                estimate_label=_estimate_label(d.estimate_minutes),
+                title=_deadline_label(d.deadline_type),
+                why="A compliance deadline is approaching.",
+                estimate_label=None,
                 action_label="View deadline",
+                href=_deadline_href(d.deadline_type),
                 due_at=d.due_at,
                 days_remaining=_days_remaining(d.due_at, now),
             )
         )
-    pending_actions.sort(
-        key=lambda p: p.days_remaining if p.days_remaining is not None else 9999
-    )
+    pending_actions.sort(key=lambda p: p.days_remaining if p.days_remaining is not None else 9999)
 
-    # --- Section 2: Onus activity (most recent agent tasks) ---
+    # --- Section 2: Onus activity ---
     recent = db.scalars(
         select(AgentTask)
         .where(AgentTask.firm_id == firm_id)
@@ -123,10 +150,10 @@ def summary(
     recent_activity = [
         AgentActivityOut(
             id=t.id,
-            summary=t.summary,
+            summary=_task_summary(t),
             created_at=t.created_at,
             human_action_required=t.human_action_required,
-            human_action_outcome=t.human_action_outcome,
+            human_action_outcome=t.human_action_type,
         )
         for t in recent
     ]
@@ -144,7 +171,7 @@ def summary(
     upcoming_deadlines = [
         UpcomingDeadlineOut(
             id=d.id,
-            name=d.name,
+            name=_deadline_label(d.deadline_type),
             due_at=d.due_at,
             days_remaining=_days_remaining(d.due_at, now),
         )
