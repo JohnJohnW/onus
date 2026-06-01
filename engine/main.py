@@ -9,6 +9,7 @@ from routers import audit as audit_router
 from routers import auth as auth_router
 from routers import clients as clients_router
 from routers import dashboard as dashboard_router
+from routers import evaluations as evaluations_router
 from routers import firms as firms_router
 from routers import governance as governance_router
 from routers import onboarding as onboarding_router
@@ -30,6 +31,7 @@ app.include_router(clients_router.router, prefix="/clients", tags=["clients"])
 app.include_router(clients_router.matters_router, prefix="/matters", tags=["matters"])
 app.include_router(reports_router.router, prefix="/reports", tags=["reports"])
 app.include_router(reports_router.records_router, prefix="/records", tags=["records"])
+app.include_router(evaluations_router.router, prefix="/evaluations", tags=["evaluations"])
 app.include_router(dashboard_router.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(audit_router.router, prefix="/audit-log", tags=["audit"])
 

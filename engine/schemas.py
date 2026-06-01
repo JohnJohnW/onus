@@ -456,3 +456,90 @@ class RecordOut(BaseModel):
     retention_until: Optional[str] = None
     immutable: bool
     created_at: datetime
+
+
+# ----- Independent evaluation -----
+
+class EvaluationScheduleRequest(BaseModel):
+    frequency_months: Optional[int] = None
+    frequency_rationale: Optional[str] = None
+    is_first_evaluation: bool = False
+    scheduled_for: Optional[str] = None  # ISO date
+
+
+class EvaluatorRequest(BaseModel):
+    name: str
+    kind: str = "external"  # internal | external
+    is_compliance_officer: bool = False
+    independence_confirmed: bool = False
+    independence_checklist: Optional[dict] = None
+    suitability_scorecard: Optional[dict] = None
+    selection_rationale: Optional[str] = None
+
+
+class FindingIn(BaseModel):
+    area: str  # risk_assessment | policy | compliance
+    is_adverse: bool = False
+    description: str
+    remediation_action: Optional[str] = None
+
+
+class EvaluationReportRequest(BaseModel):
+    summary_of_process: Optional[str] = None
+    aspects_reviewed: Optional[str] = None
+    method: Optional[str] = None
+    findings_risk_assessment: Optional[str] = None
+    findings_policy_design: Optional[str] = None
+    findings_compliance: Optional[str] = None
+    items_tested: Optional[str] = None
+    files_sampled: Optional[str] = None
+    sampling_method: Optional[str] = None
+    document_ref: Optional[str] = None
+    findings: List[FindingIn] = []
+
+
+class FindingUpdate(BaseModel):
+    status: Optional[str] = None  # open | in_progress | done | wont_fix
+    remediation_action: Optional[str] = None
+    wont_fix_reason: Optional[str] = None
+
+
+class EvaluatorOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    kind: str
+    independence_confirmed: bool
+    is_compliance_officer: bool
+    selection_rationale: Optional[str] = None
+
+
+class FindingOut(BaseModel):
+    id: uuid.UUID
+    area: str
+    is_adverse: bool
+    description: str
+    remediation_action: Optional[str] = None
+    status: str
+    wont_fix_reason: Optional[str] = None
+
+
+class EvaluationOut(BaseModel):
+    id: uuid.UUID
+    status: str
+    frequency_months: Optional[int] = None
+    frequency_rationale: Optional[str] = None
+    is_first_evaluation: bool
+    statutory_deadline: Optional[str] = None
+    scheduled_for: Optional[str] = None
+    report_received_at: Optional[datetime] = None
+    distributed_to_governing_body_at: Optional[datetime] = None
+    distributed_to_senior_manager_at: Optional[datetime] = None
+    evaluator: Optional[EvaluatorOut] = None
+    has_report: bool = False
+    findings: List[FindingOut] = []
+
+
+class EvaluationsOut(BaseModel):
+    first_evaluation_deadline: Optional[str] = None
+    enrolment_known: bool = False
+    evaluations: List[EvaluationOut]

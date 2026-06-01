@@ -508,3 +508,103 @@ class Record(Base):
     storage_ref = Column(String, nullable=True)
     immutable = Column(Boolean, nullable=False, server_default=text("true"))
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class IndependentEvaluation(Base):
+    """Periodic independent evaluation of the AML/CTF program (Act s26F(4)(f); Step 5)."""
+
+    __tablename__ = "independent_evaluations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    status = Column(String, nullable=False, server_default="scheduled")  # scheduled|in_progress|report_received|remediating|closed
+    frequency_months = Column(Integer, nullable=True)
+    frequency_rationale = Column(Text, nullable=True)
+    is_first_evaluation = Column(Boolean, nullable=False, server_default=text("false"))
+    statutory_deadline = Column(Date, nullable=True)  # AAN-staggered (Transitional Rules s17)
+    scheduled_for = Column(Date, nullable=True)
+    report_received_at = Column(DateTime(timezone=True), nullable=True)
+    distributed_to_governing_body_at = Column(DateTime(timezone=True), nullable=True)
+    distributed_to_senior_manager_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    evaluator = relationship(
+        "Evaluator", back_populates="evaluation", uselist=False, cascade="all, delete-orphan"
+    )
+    report = relationship(
+        "EvaluationReport", back_populates="evaluation", uselist=False, cascade="all, delete-orphan"
+    )
+    findings = relationship(
+        "EvaluationFinding", back_populates="evaluation", cascade="all, delete-orphan"
+    )
+
+
+class Evaluator(Base):
+    """The evaluator — must be independent of the compliance function (Step 5 p.6)."""
+
+    __tablename__ = "evaluators"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    evaluation_id = Column(
+        UUID(as_uuid=True), ForeignKey("independent_evaluations.id"), nullable=False, index=True
+    )
+    name = Column(String, nullable=False)
+    kind = Column(String, nullable=False, server_default="external")  # internal | external
+    independence_confirmed = Column(Boolean, nullable=False, server_default=text("false"))
+    is_compliance_officer = Column(Boolean, nullable=False, server_default=text("false"))
+    independence_checklist = Column(JSONB, nullable=True)
+    suitability_scorecard = Column(JSONB, nullable=True)
+    selection_rationale = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    evaluation = relationship("IndependentEvaluation", back_populates="evaluator")
+
+
+class EvaluationReport(Base):
+    """The written evaluation report (Step 5 p.10)."""
+
+    __tablename__ = "evaluation_reports"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    evaluation_id = Column(
+        UUID(as_uuid=True), ForeignKey("independent_evaluations.id"), nullable=False, index=True
+    )
+    summary_of_process = Column(Text, nullable=True)
+    aspects_reviewed = Column(Text, nullable=True)
+    method = Column(Text, nullable=True)
+    findings_risk_assessment = Column(Text, nullable=True)
+    findings_policy_design = Column(Text, nullable=True)
+    findings_compliance = Column(Text, nullable=True)
+    items_tested = Column(Text, nullable=True)
+    files_sampled = Column(Text, nullable=True)
+    sampling_method = Column(Text, nullable=True)
+    document_ref = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    evaluation = relationship("IndependentEvaluation", back_populates="report")
+
+
+class EvaluationFinding(Base):
+    """A finding from the evaluation; adverse findings trigger review (Step 5 pp.12-14)."""
+
+    __tablename__ = "evaluation_findings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    evaluation_id = Column(
+        UUID(as_uuid=True), ForeignKey("independent_evaluations.id"), nullable=False, index=True
+    )
+    area = Column(String, nullable=False)  # risk_assessment | policy | compliance
+    is_adverse = Column(Boolean, nullable=False, server_default=text("false"))
+    description = Column(Text, nullable=False)
+    owner_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    remediation_action = Column(Text, nullable=True)
+    status = Column(String, nullable=False, server_default="open")  # open|in_progress|done|wont_fix
+    wont_fix_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    evaluation = relationship("IndependentEvaluation", back_populates="findings")
