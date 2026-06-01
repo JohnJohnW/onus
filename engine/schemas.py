@@ -241,3 +241,42 @@ class AuditLogOut(BaseModel):
     entity_type: Optional[str] = None
     actor: Optional[str] = None
     created_at: datetime
+
+
+# ----- Compliance program -----
+
+class PolicyOut(BaseModel):
+    id: uuid.UUID
+    area_key: str
+    title: str
+    body: Optional[str] = None
+    status: str
+    obligation_key: Optional[str] = None
+    act_reference: Optional[str] = None
+    documented: bool
+
+
+class PolicyUpdate(BaseModel):
+    title: Optional[str] = None
+    body: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ProgramOut(BaseModel):
+    id: uuid.UUID
+    status: str
+    version: int
+    documented_at: Optional[datetime] = None
+    approved_by_name: Optional[str] = None
+    approved_by_role: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    next_review_due: Optional[datetime] = None
+    risk_assessment_status: Optional[str] = None
+    documented_count: int
+    total_count: int
+    policies: List[PolicyOut]
+    roles: List[GovernanceRoleOut]
+
+
+class ProgramApproveRequest(BaseModel):
+    decision_reason: Optional[str] = None

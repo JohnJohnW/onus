@@ -230,7 +230,67 @@ class GovernanceApproval(Base):
     action_label = Column(String, nullable=False, server_default="Review and approve")
     status = Column(String, nullable=False, server_default="pending")
     due_at = Column(DateTime(timezone=True), nullable=True)
+    # What is being approved (Act s26P; Rules s5-5)
+    subject_type = Column(String, nullable=True)  # program | policy | risk_assessment | pep_relationship | ...
+    subject_id = Column(UUID(as_uuid=True), nullable=True)
+    escalation_reason = Column(Text, nullable=True)
+    # Who decided — name/role/date (s26P; Senior-manager guidance p.8)
+    approved_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approver_name = Column(String, nullable=True)
+    approver_role = Column(String, nullable=True)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
+    decision = Column(String, nullable=True)  # approved | not_approved
+    decision_reason = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AmlProgram(Base):
+    """The AML/CTF program container = risk assessment + policies (Act Pt 1A)."""
+
+    __tablename__ = "aml_programs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(
+        UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, unique=True, index=True
+    )
+    status = Column(String, nullable=False, server_default="draft")  # draft | approved | under_review
+    version = Column(Integer, nullable=False, server_default=text("1"))
+    documented_at = Column(DateTime(timezone=True), nullable=True)
+    risk_assessment_id = Column(UUID(as_uuid=True), ForeignKey("risk_assessments.id"), nullable=True)
+    approved_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approved_by_name = Column(String, nullable=True)
+    approved_by_role = Column(String, nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    next_review_due_at = Column(DateTime(timezone=True), nullable=True)  # approved_at + 3 years
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    policies = relationship("Policy", back_populates="program", cascade="all, delete-orphan")
+
+
+class Policy(Base):
+    """An AML/CTF policy (Act s26F; Rules Pt 5). One per obligation area."""
+
+    __tablename__ = "policies"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    program_id = Column(UUID(as_uuid=True), ForeignKey("aml_programs.id"), nullable=False, index=True)
+    area_key = Column(String, nullable=False)  # matches the policy catalogue
+    obligation_key = Column(String, nullable=True)  # obligation it satisfies (coverage)
+    act_reference = Column(String, nullable=True)
+    title = Column(String, nullable=False)
+    body = Column(Text, nullable=True)
+    status = Column(String, nullable=False, server_default="draft")  # draft | approved
+    version = Column(Integer, nullable=False, server_default=text("1"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    program = relationship("AmlProgram", back_populates="policies")
 
 
 class ComplianceDeadline(Base):

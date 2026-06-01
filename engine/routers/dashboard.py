@@ -119,7 +119,7 @@ def summary(
                 why=a.rationale,
                 estimate_label=_estimate_label(a.estimate_minutes),
                 action_label=a.action_label,
-                href="/risk-profile",
+                href="/compliance-program" if a.subject_type == "program" else "/risk-profile",
                 due_at=a.due_at,
                 days_remaining=_days_remaining(a.due_at, now),
             )
