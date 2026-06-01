@@ -59,6 +59,7 @@ class AuthResponse(BaseModel):
 # ----- Onboarding requests -----
 
 class FirmUpdate(BaseModel):
+    name: Optional[str] = None
     abn: Optional[str] = None
     firm_size: Optional[str] = None
     practice_areas: Optional[List[str]] = None
@@ -97,6 +98,7 @@ class PendingActionOut(BaseModel):
     why: str
     estimate_label: Optional[str] = None
     action_label: str
+    href: Optional[str] = None
     due_at: Optional[datetime] = None
     days_remaining: Optional[int] = None
 
@@ -147,3 +149,29 @@ class RiskAssessmentOut(BaseModel):
     client_types: List[RiskItemOut]
     channels: List[RiskItemOut]
     countries: List[RiskItemOut]
+
+
+# ----- Settings & audit -----
+
+class GovernanceRoleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    role: str
+    user_id: Optional[uuid.UUID] = None
+    is_active: bool
+    appointed_at: Optional[datetime] = None
+
+
+class FirmSettingsOut(BaseModel):
+    firm: FirmOut
+    users: List[UserOut]
+    governance_roles: List[GovernanceRoleOut]
+
+
+class AuditLogOut(BaseModel):
+    id: uuid.UUID
+    action: str
+    entity_type: Optional[str] = None
+    actor: Optional[str] = None
+    created_at: datetime

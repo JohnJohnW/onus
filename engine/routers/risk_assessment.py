@@ -19,6 +19,7 @@ from models import (
     RiskAssessmentCustomerType,
     RiskAssessmentDeliveryChannel,
     RiskAssessmentService,
+    ReviewTrigger,
     User,
 )
 from schemas import (
@@ -246,3 +247,33 @@ def approve(
     db.commit()
     db.refresh(assessment)
     return _serialize(assessment, current_user.full_name or current_user.email)
+
+
+@router.post("/request-changes")
+def request_changes(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    assessment = _current(db, current_user.firm_id)
+    if assessment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No risk assessment.")
+    actor = current_user.full_name or current_user.email
+    db.add(
+        ReviewTrigger(
+            firm_id=current_user.firm_id,
+            trigger_type="risk_assessment_changes_requested",
+            description=f"Changes requested on the risk assessment by {actor}.",
+            review_required_by=datetime.now(timezone.utc),
+        )
+    )
+    db.add(
+        AuditLog(
+            firm_id=current_user.firm_id,
+            user_id=current_user.id,
+            action="risk_assessment.changes_requested",
+            entity_type="risk_assessment",
+            entity_id=assessment.id,
+        )
+    )
+    db.commit()
+    return {"status": "ok"}

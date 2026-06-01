@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
@@ -14,6 +16,7 @@ type PendingAction = {
   why: string;
   estimate_label: string | null;
   action_label: string;
+  href: string | null;
   due_at: string | null;
   days_remaining: number | null;
 };
@@ -109,9 +112,15 @@ export default async function DashboardPage() {
                       )}
                     </div>
                   </div>
-                  <Button size="sm" className="shrink-0">
-                    {a.action_label}
-                  </Button>
+                  {a.href ? (
+                    <Button asChild size="sm" className="shrink-0">
+                      <Link href={a.href}>{a.action_label}</Link>
+                    </Button>
+                  ) : (
+                    <Button size="sm" className="shrink-0">
+                      {a.action_label}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}

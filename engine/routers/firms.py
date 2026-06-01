@@ -1,4 +1,4 @@
-"""Firm endpoints — onboarding firm-detail and enrolment updates."""
+"""Firm endpoints — onboarding updates and settings."""
 from __future__ import annotations
 
 import uuid
@@ -10,13 +10,33 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from database import get_db
-from models import ComplianceDeadline, Firm, User
-from schemas import FirmOut, FirmUpdate
+from models import ComplianceDeadline, Firm, GovernanceRole, User
+from schemas import FirmOut, FirmSettingsOut, FirmUpdate, GovernanceRoleOut, UserOut
 
 router = APIRouter()
 
 # AUSTRAC enrolment deadline for Tranche 2 entities.
 ENROLMENT_DEADLINE = datetime(2026, 7, 29, tzinfo=timezone.utc)
+
+
+@router.get("/{firm_id}", response_model=FirmSettingsOut)
+def get_firm(
+    firm_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> FirmSettingsOut:
+    if firm_id != current_user.firm_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your firm.")
+    firm = db.get(Firm, firm_id)
+    if firm is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Firm not found.")
+    users = db.scalars(select(User).where(User.firm_id == firm_id)).all()
+    roles = db.scalars(select(GovernanceRole).where(GovernanceRole.firm_id == firm_id)).all()
+    return FirmSettingsOut(
+        firm=FirmOut.model_validate(firm),
+        users=[UserOut.model_validate(u) for u in users],
+        governance_roles=[GovernanceRoleOut.model_validate(r) for r in roles],
+    )
 
 
 @router.patch("/{firm_id}", response_model=FirmOut)
@@ -34,6 +54,7 @@ def update_firm(
 
     data = body.model_dump(exclude_unset=True)
     for field in (
+        "name",
         "abn",
         "firm_size",
         "practice_areas",

@@ -57,6 +57,20 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
     router.refresh();
   }
 
+  async function requestChanges() {
+    setSubmitting(true);
+    setError("");
+    const res = await fetch("/api/risk-assessment/request-changes", { method: "POST" });
+    setSubmitting(false);
+    if (!res.ok) {
+      setError("Could not submit your request. Please try again.");
+      return;
+    }
+    setChangeRequested(true);
+    setReviewing(false);
+    router.refresh();
+  }
+
   const indicator = INDICATOR[assessment.overall_rating?.toLowerCase()] ?? INDICATOR.unassessed;
 
   return (
@@ -86,10 +100,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
                   size="sm"
                   variant="outline"
                   disabled={submitting}
-                  onClick={() => {
-                    setChangeRequested(true);
-                    setReviewing(false);
-                  }}
+                  onClick={requestChanges}
                 >
                   Request changes
                 </Button>
@@ -111,8 +122,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
           )}
           {changeRequested && (
             <p className="mt-3 text-xs text-amber-200/80">
-              Change requests aren&apos;t wired up yet — this is where you&apos;ll send the
-              assessment back for revision.
+              Your change request has been recorded — Onus will revisit the assessment.
             </p>
           )}
         </div>

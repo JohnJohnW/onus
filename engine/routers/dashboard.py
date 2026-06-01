@@ -40,6 +40,18 @@ def _deadline_label(deadline_type: str) -> str:
     return DEADLINE_LABELS.get(deadline_type, deadline_type.replace("_", " ").capitalize())
 
 
+DEADLINE_HREFS = {
+    "enrolment": "/settings",
+    "annual_report": "/reporting",
+    "risk_assessment_review": "/risk-profile",
+    "independent_evaluation": "/evaluation",
+}
+
+
+def _deadline_href(deadline_type: str) -> str:
+    return DEADLINE_HREFS.get(deadline_type, "/dashboard")
+
+
 def _task_summary(task: AgentTask) -> str:
     base = (task.task_type or task.agent_type or "Task").replace("_", " ").strip()
     return base[:1].upper() + base[1:] if base else "Task"
@@ -107,6 +119,7 @@ def summary(
                 why=a.rationale,
                 estimate_label=_estimate_label(a.estimate_minutes),
                 action_label=a.action_label,
+                href="/risk-profile",
                 due_at=a.due_at,
                 days_remaining=_days_remaining(a.due_at, now),
             )
@@ -120,6 +133,7 @@ def summary(
                 why="A compliance deadline is approaching.",
                 estimate_label=None,
                 action_label="View deadline",
+                href=_deadline_href(d.deadline_type),
                 due_at=d.due_at,
                 days_remaining=_days_remaining(d.due_at, now),
             )
