@@ -62,6 +62,7 @@ function ReportRow({ report }: { report: Report }) {
   const [busy, setBusy] = useState(false);
   const [reference, setReference] = useState("");
   const [lodging, setLodging] = useState(false);
+  const [grounds, setGrounds] = useState(report.grounds ?? "");
 
   async function patch(body: unknown) {
     setBusy(true);
@@ -85,12 +86,20 @@ function ReportRow({ report }: { report: Report }) {
   }
   async function draftNarrative() {
     setBusy(true);
-    await fetch(`/api/reports/${report.id}/draft-narrative`, { method: "POST" });
+    const res = await fetch(`/api/reports/${report.id}/draft-narrative`, { method: "POST" });
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      if (data?.grounds != null) setGrounds(data.grounds);
+    }
     setBusy(false);
     router.refresh();
   }
+  async function saveGrounds() {
+    await patch({ grounds });
+  }
 
   const active = report.status === "draft" || report.status === "ready";
+  const groundsDirty = grounds !== (report.grounds ?? "");
 
   return (
     <div className="px-5 py-4">
@@ -120,16 +129,32 @@ function ReportRow({ report }: { report: Report }) {
           {report.status.replace(/_/g, " ")}
         </span>
       </div>
-      {report.type === "smr" && report.grounds && (
-        <p className="mt-2 text-xs text-neutral-400">{report.grounds}</p>
-      )}
-      {active && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {report.type === "smr" && (
+      {report.type === "smr" && active ? (
+        <div className="mt-3 space-y-2">
+          <textarea
+            value={grounds}
+            onChange={(e) => setGrounds(e.target.value)}
+            rows={4}
+            placeholder="Grounds for suspicion. Draft with Onus or write your own, then edit before lodging."
+            className={`${field} w-full`}
+          />
+          <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="ghost" disabled={busy} onClick={draftNarrative}>
               {busy ? "Drafting..." : "Draft with Onus"}
             </Button>
-          )}
+            <Button size="sm" variant="outline" disabled={busy || !groundsDirty} onClick={saveGrounds}>
+              Save grounds
+            </Button>
+          </div>
+        </div>
+      ) : (
+        report.type === "smr" &&
+        report.grounds && (
+          <p className="mt-2 whitespace-pre-wrap text-xs text-neutral-400">{report.grounds}</p>
+        )
+      )}
+      {active && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           {report.status === "draft" && (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => patch({ status: "ready" })}>
               Mark ready
