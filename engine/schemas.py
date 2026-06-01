@@ -470,6 +470,7 @@ class ReportOut(BaseModel):
     status: str
     related_client_id: Optional[uuid.UUID] = None
     related_matter_id: Optional[uuid.UUID] = None
+    grounds: Optional[str] = None  # SMR grounds-for-suspicion (from payload)
     deadline_basis: Optional[str] = None
     lpp_claimed: bool
     lpp_form_ref: Optional[str] = None

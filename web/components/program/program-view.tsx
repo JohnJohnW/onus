@@ -56,6 +56,17 @@ function PolicyRow({ policy }: { policy: Policy }) {
     router.refresh();
   }
 
+  async function draftWithOnus() {
+    setBusy(true);
+    const res = await fetch(`/api/program/policies/${policy.id}/draft`, { method: "POST" });
+    setBusy(false);
+    if (res.ok) {
+      const data = await res.json();
+      setBody(data.body ?? "");
+      router.refresh();
+    }
+  }
+
   return (
     <div className="px-5 py-4">
       <div className="flex items-start justify-between gap-4">
@@ -95,7 +106,10 @@ function PolicyRow({ policy }: { policy: Policy }) {
             placeholder="Describe the policies, procedures, systems and controls for this obligation…"
             className="w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-600"
           />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="ghost" disabled={busy} onClick={draftWithOnus}>
+              {busy ? "Drafting…" : "✨ Draft with Onus"}
+            </Button>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => save(false)}>
               Save draft
             </Button>

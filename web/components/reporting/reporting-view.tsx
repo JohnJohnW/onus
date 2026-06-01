@@ -11,6 +11,7 @@ export type Report = {
   id: string;
   type: string;
   status: string;
+  grounds: string | null;
   deadline_basis: string | null;
   lpp_claimed: boolean;
   lpp_form_ref: string | null;
@@ -82,6 +83,12 @@ function ReportRow({ report }: { report: Report }) {
     setBusy(false);
     router.refresh();
   }
+  async function draftNarrative() {
+    setBusy(true);
+    await fetch(`/api/reports/${report.id}/draft-narrative`, { method: "POST" });
+    setBusy(false);
+    router.refresh();
+  }
 
   const active = report.status === "draft" || report.status === "ready";
 
@@ -113,8 +120,16 @@ function ReportRow({ report }: { report: Report }) {
           {report.status.replace(/_/g, " ")}
         </span>
       </div>
+      {report.type === "smr" && report.grounds && (
+        <p className="mt-2 text-xs text-neutral-400">{report.grounds}</p>
+      )}
       {active && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          {report.type === "smr" && (
+            <Button size="sm" variant="ghost" disabled={busy} onClick={draftNarrative}>
+              {busy ? "Drafting…" : "✨ Draft with Onus"}
+            </Button>
+          )}
           {report.status === "draft" && (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => patch({ status: "ready" })}>
               Mark ready

@@ -75,6 +75,7 @@ def _report_out(r: Report) -> ReportOut:
         status=r.status,
         related_client_id=r.related_client_id,
         related_matter_id=r.related_matter_id,
+        grounds=(r.payload or {}).get("grounds_for_suspicion"),
         deadline_basis=r.deadline_basis,
         lpp_claimed=r.lpp_claimed,
         lpp_form_ref=r.lpp_form_ref,
