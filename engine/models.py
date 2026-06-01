@@ -60,11 +60,17 @@ class GovernanceRole(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
-    role = Column(String, nullable=False)  # compliance_officer | senior_manager
+    # governing_body | senior_manager | compliance_officer | independent_evaluator
+    role = Column(String, nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     appointed_at = Column(DateTime(timezone=True), nullable=True)
     appointed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     is_active = Column(Boolean, nullable=False, server_default=text("true"))
+    # Eligibility (compliance officer — Act s26J; Rules s5-14)
+    management_level = Column(Boolean, nullable=False, server_default=text("false"))
+    is_australian_resident = Column(Boolean, nullable=False, server_default=text("false"))
+    fit_and_proper_considered = Column(Boolean, nullable=False, server_default=text("false"))
+    qualifies_reason = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 

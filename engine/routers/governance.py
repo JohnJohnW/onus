@@ -3,16 +3,84 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from database import get_db
-from models import Firm, GovernanceRole, User
-from schemas import GovernanceRolesRequest
+from models import AuditLog, Firm, GovernanceRole, User
+from schemas import GovernanceAssignRequest, GovernanceRoleOut, GovernanceRolesRequest
 
 router = APIRouter()
+
+VALID_ROLES = ("governing_body", "senior_manager", "compliance_officer", "independent_evaluator")
+
+
+@router.get("/roles", response_model=list[GovernanceRoleOut])
+def list_roles(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[GovernanceRoleOut]:
+    rows = db.scalars(
+        select(GovernanceRole).where(
+            GovernanceRole.firm_id == current_user.firm_id, GovernanceRole.is_active.is_(True)
+        )
+    ).all()
+    return [GovernanceRoleOut.model_validate(r) for r in rows]
+
+
+@router.post("/assign", response_model=GovernanceRoleOut)
+def assign_role(
+    body: GovernanceAssignRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> GovernanceRoleOut:
+    """Assign a governance role, enforcing compliance-officer eligibility (Act s26J)."""
+    if body.role not in VALID_ROLES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown role.")
+    if body.role == "compliance_officer" and not (
+        body.management_level and body.is_australian_resident and body.fit_and_proper_considered
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The compliance officer must be at management level, an Australian resident, "
+            "and have a completed fit-and-proper consideration (Act s26J).",
+        )
+    user = db.get(User, body.user_id)
+    if user is None or user.firm_id != current_user.firm_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    gr = db.scalar(
+        select(GovernanceRole).where(
+            GovernanceRole.firm_id == current_user.firm_id, GovernanceRole.role == body.role
+        )
+    )
+    if gr is None:
+        gr = GovernanceRole(firm_id=current_user.firm_id, role=body.role)
+        db.add(gr)
+    gr.user_id = body.user_id
+    gr.appointed_at = datetime.now(timezone.utc)
+    gr.appointed_by_user_id = current_user.id
+    gr.is_active = True
+    gr.management_level = body.management_level
+    gr.is_australian_resident = body.is_australian_resident
+    gr.fit_and_proper_considered = body.fit_and_proper_considered
+    gr.qualifies_reason = body.qualifies_reason
+    db.flush()
+    db.add(
+        AuditLog(
+            firm_id=current_user.firm_id,
+            user_id=current_user.id,
+            action="governance.role_assigned",
+            entity_type="governance_role",
+            entity_id=gr.id,
+            after_state={"role": body.role},
+        )
+    )
+    db.commit()
+    db.refresh(gr)
+    return GovernanceRoleOut.model_validate(gr)
 
 
 @router.post("/roles")

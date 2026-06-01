@@ -227,6 +227,19 @@ class GovernanceRoleOut(BaseModel):
     user_id: Optional[uuid.UUID] = None
     is_active: bool
     appointed_at: Optional[datetime] = None
+    management_level: bool = False
+    is_australian_resident: bool = False
+    fit_and_proper_considered: bool = False
+    qualifies_reason: Optional[str] = None
+
+
+class GovernanceAssignRequest(BaseModel):
+    role: str  # governing_body | senior_manager | compliance_officer | independent_evaluator
+    user_id: uuid.UUID
+    qualifies_reason: Optional[str] = None
+    management_level: bool = False
+    is_australian_resident: bool = False
+    fit_and_proper_considered: bool = False
 
 
 class FirmSettingsOut(BaseModel):
