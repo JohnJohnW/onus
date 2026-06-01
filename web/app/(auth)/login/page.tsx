@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
+import { OnusMark } from "@/components/brand/onus-mark";
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -29,7 +31,8 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-neutral-950 px-4 text-neutral-100">
       <div className="w-full max-w-sm">
-        <div className="mb-10 text-center">
+        <div className="mb-10 flex flex-col items-center gap-2">
+          <OnusMark className="h-9 w-9" />
           <span className="text-2xl font-semibold tracking-tight">Onus</span>
         </div>
         <h1 className="mb-1 text-lg font-medium">Sign in</h1>

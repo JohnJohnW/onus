@@ -3,6 +3,7 @@
 import { Menu } from "lucide-react";
 import { useState } from "react";
 
+import { OnusMark } from "@/components/brand/onus-mark";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { SidebarNav } from "./sidebar-nav";
@@ -36,6 +37,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <SidebarNav onNavigate={() => setOpen(false)} />
             </SheetContent>
           </Sheet>
+          <OnusMark className="h-5 w-5" />
           <span className="text-base font-semibold tracking-tight">Onus</span>
         </header>
 

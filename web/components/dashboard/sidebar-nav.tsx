@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { OnusMark } from "@/components/brand/onus-mark";
 import { SignOutButton } from "@/components/sign-out-button";
 import { cn } from "@/lib/utils";
 import { navItems } from "./nav-items";
@@ -12,7 +13,8 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-14 items-center px-5">
+      <div className="flex h-14 items-center gap-2 px-5">
+        <OnusMark className="h-6 w-6 text-neutral-50" />
         <span className="text-lg font-semibold tracking-tight text-neutral-50">Onus</span>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
