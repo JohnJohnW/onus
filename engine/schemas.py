@@ -402,3 +402,57 @@ class CatalogueItem(BaseModel):
 class ClientsMetaOut(BaseModel):
     customer_types: List[CatalogueItem]
     designated_services: List[CatalogueItem]
+
+
+# ----- Reporting & record keeping -----
+
+class ReportCreate(BaseModel):
+    type: str  # smr | ttr | ifti | annual_compliance | cross_border_bni
+    related_client_id: Optional[uuid.UUID] = None
+    related_matter_id: Optional[uuid.UUID] = None
+    payload: Optional[dict] = None
+    tf: bool = False  # SMR: terrorism-financing suspicion -> 24h deadline
+    lpp_claimed: bool = False
+    amount: Optional[float] = None  # TTR: physical-currency value
+    reporting_period_end: Optional[str] = None  # annual report period end (ISO date)
+
+
+class ReportUpdate(BaseModel):
+    payload: Optional[dict] = None
+    status: Optional[str] = None  # draft | ready | lodged | not_required
+    reference_number: Optional[str] = None
+    lpp_claimed: Optional[bool] = None
+    lpp_form_ref: Optional[str] = None
+
+
+class ReportOut(BaseModel):
+    id: uuid.UUID
+    type: str
+    status: str
+    related_client_id: Optional[uuid.UUID] = None
+    related_matter_id: Optional[uuid.UUID] = None
+    deadline_basis: Optional[str] = None
+    lpp_claimed: bool
+    lpp_form_ref: Optional[str] = None
+    due_at: Optional[datetime] = None
+    lodged_at: Optional[datetime] = None
+    reference_number: Optional[str] = None
+    created_at: datetime
+
+
+class DecisionRequest(BaseModel):
+    reasonable_grounds: bool
+    reasoning: Optional[str] = None
+    client_id: Optional[uuid.UUID] = None
+    matter_id: Optional[uuid.UUID] = None
+
+
+class RecordOut(BaseModel):
+    id: uuid.UUID
+    category: str
+    entity_type: Optional[str] = None
+    retention_basis: str
+    basis_date: Optional[str] = None
+    retention_until: Optional[str] = None
+    immutable: bool
+    created_at: datetime

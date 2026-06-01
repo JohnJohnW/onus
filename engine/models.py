@@ -447,3 +447,64 @@ class CddCheck(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     client = relationship("Client", back_populates="cdd_checks")
+
+
+class Report(Base):
+    """An AUSTRAC report — SMR / TTR / IFTI / annual compliance (Act Pt 3)."""
+
+    __tablename__ = "reports"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    type = Column(String, nullable=False)  # smr | ttr | ifti | annual_compliance | cross_border_bni | enrolment
+    status = Column(String, nullable=False, server_default="draft")  # draft | ready | lodged | not_required
+    related_client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True)
+    related_matter_id = Column(UUID(as_uuid=True), ForeignKey("matters.id"), nullable=True)
+    payload = Column(JSONB, nullable=True)
+    deadline_basis = Column(String, nullable=True)
+    lpp_claimed = Column(Boolean, nullable=False, server_default=text("false"))
+    lpp_form_ref = Column(String, nullable=True)
+    due_at = Column(DateTime(timezone=True), nullable=True)
+    lodged_at = Column(DateTime(timezone=True), nullable=True)
+    lodged_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    reference_number = Column(String, nullable=True)  # AUSTRAC receipt
+    content_hash = Column(String, nullable=True)  # integrity (Rules s5-11)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class ReportDecisionLog(Base):
+    """The "reasonable grounds to suspect" reasoning behind reporting (Rules s5-12)."""
+
+    __tablename__ = "report_decision_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id"), nullable=True)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True)
+    matter_id = Column(UUID(as_uuid=True), ForeignKey("matters.id"), nullable=True)
+    reasonable_grounds = Column(Boolean, nullable=False, server_default=text("false"))
+    reasoning = Column(Text, nullable=True)
+    decided_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    decided_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class Record(Base):
+    """Retention register — 7 years from one of four start events (Act ss107-116)."""
+
+    __tablename__ = "records"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    category = Column(String, nullable=False)
+    entity_type = Column(String, nullable=True)
+    entity_id = Column(UUID(as_uuid=True), nullable=True)
+    # from_creation (s107) | from_receipt (s108) | from_relationship_end (s111/114) | from_no_longer_relevant (s116)
+    retention_basis = Column(String, nullable=False, server_default="from_creation")
+    basis_date = Column(Date, nullable=True)
+    retention_until = Column(Date, nullable=True)
+    storage_ref = Column(String, nullable=True)
+    immutable = Column(Boolean, nullable=False, server_default=text("true"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
