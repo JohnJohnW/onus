@@ -1,0 +1,77 @@
+# Onus — local development stack
+#
+#   web    : Next.js dev server (hot reload)        -> http://localhost:3000
+#   engine : FastAPI dev server (uvicorn --reload)  -> http://localhost:8000
+#   db     : PostgreSQL 15 + pgvector               -> localhost:5432
+#
+# All services read shared config from .env.local (copy it from
+# .env.local.example first). Start everything with:  docker compose up
+
+services:
+  web:
+    build:
+      context: ./web
+      dockerfile: ../infrastructure/docker/web.Dockerfile
+    env_file:
+      - .env.local
+    environment:
+      # Poll-based file watching makes Next.js hot reload reliable in Docker.
+      WATCHPACK_POLLING: "true"
+      # The engine is reachable at host "engine" inside the Docker network
+      # (server-side calls from Next.js: next-auth login + signup proxy).
+      ENGINE_INTERNAL_URL: http://engine:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web:/app
+      # Anonymous volume keeps the container's node_modules (built for Linux)
+      # instead of the host's.
+      - /app/node_modules
+    command: npm run dev -- -H 0.0.0.0 -p 3000
+    depends_on:
+      - engine
+
+  engine:
+    build:
+      context: ./engine
+      dockerfile: ../infrastructure/docker/engine.Dockerfile
+    env_file:
+      - .env.local
+    environment:
+      # Override DATABASE_URL from .env.local: inside the Docker network the
+      # database is reachable at host "db", not "localhost".
+      DATABASE_URL: postgresql://onus:onus_local@db:5432/onus
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./engine:/app
+      # Keep the host's local .venv out of the container.
+      - /app/.venv
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    # pgvector/pgvector:pg15 is the official PostgreSQL 15 image with the
+    # pgvector extension preinstalled (stock postgres:15 does not include it).
+    image: pgvector/pgvector:pg15
+    env_file:
+      - .env.local
+    environment:
+      POSTGRES_DB: onus
+      POSTGRES_USER: onus
+      POSTGRES_PASSWORD: onus_local
+    ports:
+      - "5432:5432"
+    volumes:
+      - onus_db_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onus -d onus"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  onus_db_data:
