@@ -131,12 +131,12 @@ function PolicyRow({ policy }: { policy: Policy }) {
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={4}
-            placeholder="Describe the policies, procedures, systems and controls for this obligation…"
+            placeholder="Describe the policies, procedures, systems and controls for this obligation..."
             className="w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-600"
           />
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="ghost" disabled={busy} onClick={draftWithOnus}>
-              {busy ? "Drafting…" : "✨ Draft with Onus"}
+              {busy ? "Drafting..." : "Draft with Onus"}
             </Button>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => save(false)}>
               Save draft
@@ -204,7 +204,7 @@ function LifecycleSection({ lifecycle }: { lifecycle: Lifecycle | null }) {
             <span className="text-neutral-400">
               {lifecycle.next_review_due ? formatDate(lifecycle.next_review_due) : "after approval"}
             </span>{" "}
-            · reviewed at least every 3 years and on a trigger.
+            - reviewed at least every 3 years and on a trigger.
           </p>
 
           <div>
@@ -218,7 +218,7 @@ function LifecycleSection({ lifecycle }: { lifecycle: Lifecycle | null }) {
                 {lifecycle.open_triggers.map((t) => (
                   <li key={t.id} className="text-sm text-amber-300">
                     {humanize(t.trigger_type)}
-                    {t.description ? <span className="text-neutral-400"> — {t.description}</span> : ""}
+                    {t.description ? <span className="text-neutral-400"> - {t.description}</span> : ""}
                   </li>
                 ))}
               </ul>
@@ -236,11 +236,11 @@ function LifecycleSection({ lifecycle }: { lifecycle: Lifecycle | null }) {
                     <span className="text-neutral-200">{c.change_summary}</span>
                     {c.is_material && (
                       <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-300">
-                        Material · needs approval
+                        Material - needs approval
                       </span>
                     )}
                     <span className="ml-2 text-xs text-neutral-500">
-                      {humanize(c.entity_type)} · {humanize(c.trigger)} · {formatDate(c.changed_at)}
+                      {humanize(c.entity_type)} - {humanize(c.trigger)} - {formatDate(c.changed_at)}
                     </span>
                   </li>
                 ))}
@@ -354,7 +354,7 @@ export function ProgramView({
       <header className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">Compliance Program</h1>
         <p className="mt-2 text-sm text-neutral-400">
-          Your AML/CTF program — the risk assessment plus the policies that manage your risks
+          Your AML/CTF program - the risk assessment plus the policies that manage your risks
           and keep you compliant. It must be documented and approved by a senior manager before
           you provide a designated service.
         </p>

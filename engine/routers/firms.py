@@ -1,4 +1,4 @@
-"""Firm endpoints — onboarding updates and settings."""
+"""Firm endpoints - onboarding updates and settings."""
 from __future__ import annotations
 
 import uuid

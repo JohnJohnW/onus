@@ -86,7 +86,7 @@ function CheckList({
                 active ? "border-neutral-300 bg-neutral-100 text-neutral-900" : "border-neutral-600"
               )}
             >
-              {active && "✓"}
+              {active && "x"}
             </span>
             {opt}
           </button>
@@ -182,7 +182,7 @@ export function OnboardingWizard({ initialStep = 0 }: { initialStep?: number }) 
             <div>
               <label htmlFor="firmSize" className={label}>Firm size</label>
               <select id="firmSize" value={firmSize} onChange={(e) => setFirmSize(e.target.value)} className={field}>
-                <option value="">Select…</option>
+                <option value="">Select...</option>
                 {FIRM_SIZES.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
@@ -272,7 +272,7 @@ export function OnboardingWizard({ initialStep = 0 }: { initialStep?: number }) 
           Back
         </Button>
         <Button size="sm" onClick={next} disabled={busy}>
-          {busy ? "Saving…" : step === STEP_TITLES.length - 1 ? "Finish onboarding" : "Continue"}
+          {busy ? "Saving..." : step === STEP_TITLES.length - 1 ? "Finish onboarding" : "Continue"}
         </Button>
       </div>
     </div>

@@ -1,4 +1,4 @@
-"""Clients & matters — CDD execution and the before-you-act CDD gate (Act Pt 2)."""
+"""Clients & matters - CDD execution and the before-you-act CDD gate (Act Pt 2)."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -52,12 +52,12 @@ CUSTOMER_TYPES: list[tuple[str, str]] = [
     ("company_foreign", "Company (foreign)"),
     ("partnership", "Partnership"),
     ("partnership_limited", "Limited partnership"),
-    ("trust_discretionary", "Trust — discretionary"),
-    ("trust_unit", "Trust — unit"),
-    ("trust_hybrid", "Trust — hybrid"),
-    ("trust_bare", "Trust — bare"),
-    ("trust_testamentary", "Trust — testamentary"),
-    ("trust_charitable", "Trust — charitable"),
+    ("trust_discretionary", "Trust - discretionary"),
+    ("trust_unit", "Trust - unit"),
+    ("trust_hybrid", "Trust - hybrid"),
+    ("trust_bare", "Trust - bare"),
+    ("trust_testamentary", "Trust - testamentary"),
+    ("trust_charitable", "Trust - charitable"),
     ("incorporated_association", "Incorporated association"),
     ("unincorporated_association", "Unincorporated association"),
     ("cooperative", "Co-operative"),
@@ -69,9 +69,9 @@ _SERVICE_KEYS = {k for k, _, _ in DESIGNATED_SERVICES}
 def compute_cdd_level(*, risk_rating: Optional[str], foreign_pep: bool) -> tuple[str, Optional[str]]:
     """Simplified / standard / enhanced decision (Act ss28, 31, 32)."""
     if foreign_pep:
-        return "enhanced", "Foreign PEP in the customer or an associated party — enhanced CDD is mandatory (Act s32(c))."
+        return "enhanced", "Foreign PEP in the customer or an associated party - enhanced CDD is mandatory (Act s32(c))."
     if risk_rating == "high":
-        return "enhanced", "High ML/TF risk — enhanced CDD is mandatory (Act s32(a))."
+        return "enhanced", "High ML/TF risk - enhanced CDD is mandatory (Act s32(a))."
     if risk_rating == "low":
         return "simplified", None
     return "standard", None

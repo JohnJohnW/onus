@@ -1,4 +1,4 @@
-"""Guard tests for the suspicious-activity indicator catalogue (Risk insights §4)."""
+"""Guard tests for the suspicious-activity indicator catalogue (Risk insights section 4)."""
 from routers.alerts import INDICATOR_CATALOGUE, _IND
 
 

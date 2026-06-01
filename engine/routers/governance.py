@@ -1,4 +1,4 @@
-"""Governance endpoints — appoint compliance officer / senior manager."""
+"""Governance endpoints - appoint compliance officer / senior manager."""
 from __future__ import annotations
 
 from datetime import datetime, timezone

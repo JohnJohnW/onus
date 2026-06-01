@@ -22,6 +22,6 @@ export default auth((req) => {
 });
 
 export const config = {
-  // Run on page routes only — skip API routes, Next internals, and static files.
+  // Run on page routes only - skip API routes, Next internals, and static files.
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.).*)"],
 };

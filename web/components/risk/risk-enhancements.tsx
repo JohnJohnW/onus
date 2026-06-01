@@ -61,7 +61,7 @@ function MethodologyControl({ assessment }: { assessment: RiskAssessment }) {
   return (
     <Section
       title="Assessment method"
-      hint="Smaller firms can rate impact only; medium-complexity firms rate likelihood × impact (AUSTRAC Step 2)."
+      hint="Smaller firms can rate impact only; medium-complexity firms rate likelihood x impact (AUSTRAC Step 2)."
     >
       <div className="flex flex-wrap gap-2">
         <Button
@@ -78,7 +78,7 @@ function MethodologyControl({ assessment }: { assessment: RiskAssessment }) {
           disabled={busy}
           onClick={() => set("likelihood_x_impact", "medium")}
         >
-          Likelihood × Impact
+          Likelihood x Impact
         </Button>
       </div>
     </Section>
@@ -177,7 +177,7 @@ function CountryEditor({ countries }: { countries: CountryItem[] }) {
   return (
     <Section
       title="Country risk"
-      hint="A country is rated High if it is FATF-listed, sanctioned, a prescribed foreign country (Iran, DPRK), a tax haven, or linked to terrorism — otherwise its Basel AML Index band applies."
+      hint="A country is rated High if it is FATF-listed, sanctioned, a prescribed foreign country (Iran, DPRK), a tax haven, or linked to terrorism - otherwise its Basel AML Index band applies."
     >
       <Card className="border-neutral-800 bg-neutral-900/50">
         <CardContent className="space-y-3 p-5">
@@ -237,7 +237,7 @@ function CountryEditor({ countries }: { countries: CountryItem[] }) {
               Add country
             </Button>
             <Button size="sm" onClick={save} disabled={busy}>
-              {busy ? "Saving…" : "Save countries"}
+              {busy ? "Saving..." : "Save countries"}
             </Button>
             {message && <span className="text-xs text-neutral-400">{message}</span>}
           </div>
@@ -308,7 +308,7 @@ function PfCard({ assessment }: { assessment: RiskAssessment }) {
             </label>
           ))}
           <Button size="sm" onClick={assess} disabled={busy}>
-            {busy ? "Assessing…" : "Record PF assessment"}
+            {busy ? "Assessing..." : "Record PF assessment"}
           </Button>
         </CardContent>
       </Card>
@@ -400,7 +400,7 @@ function CommunicationsRegister({ initial }: { initial: Communication[] }) {
                 />
                 <div className="flex items-center gap-3">
                   <Button type="submit" size="sm" disabled={busy}>
-                    {busy ? "Logging…" : "Log communication"}
+                    {busy ? "Logging..." : "Log communication"}
                   </Button>
                   <button
                     type="button"

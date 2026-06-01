@@ -1,4 +1,4 @@
-"""AML/CTF program — the program container, policy set, and document-&-approve flow."""
+"""AML/CTF program - the program container, policy set, and document-&-approve flow."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -39,7 +39,7 @@ from schemas import (
 
 router = APIRouter()
 
-# The seed policy catalogue — one policy per AML/CTF obligation area (Act s26F; Rules Pt 5).
+# The seed policy catalogue - one policy per AML/CTF obligation area (Act s26F; Rules Pt 5).
 POLICY_CATALOGUE: list[dict] = [
     {"area_key": "cdd", "title": "Customer due diligence", "obligation_key": "cdd", "act_reference": "Act s26F(3)(b); Rules s5-2"},
     {"area_key": "sof_sow", "title": "Source of funds / source of wealth triggers", "obligation_key": "sof_sow", "act_reference": "Rules s5-2(2)-(3)"},
@@ -171,7 +171,7 @@ async def draft_policy_body(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PolicyOut:
-    """Ask Onus to draft the policy body (a draft for human review — Onus never approves)."""
+    """Ask Onus to draft the policy body (a draft for human review - Onus never approves)."""
     policy = db.get(Policy, policy_id)
     if policy is None or policy.firm_id != current_user.firm_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found.")
@@ -236,7 +236,7 @@ def approve_program(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ProgramOut:
-    """Senior-manager approval of the program (Act s26P) — records name, role, date."""
+    """Senior-manager approval of the program (Act s26P) - records name, role, date."""
     program = _get_or_create_program(db, current_user.firm_id)
     now = datetime.now(timezone.utc)
     actor = current_user.full_name or current_user.email

@@ -1,4 +1,4 @@
-"""Reporting & record keeping — SMR/TTR/IFTI/annual, deadlines, and retention (Act Pt 3, Pt 10)."""
+"""Reporting & record keeping - SMR/TTR/IFTI/annual, deadlines, and retention (Act Pt 3, Pt 10)."""
 from __future__ import annotations
 
 import hashlib
@@ -26,7 +26,7 @@ router = APIRouter()
 records_router = APIRouter()
 
 REPORT_TYPES = {"smr", "ttr", "ifti", "annual_compliance", "cross_border_bni"}
-TTR_THRESHOLD = 10000  # physical currency ≥ $10,000 (Act s5)
+TTR_THRESHOLD = 10000  # physical currency >= $10,000 (Act s5)
 RETENTION_YEARS = 7  # Act ss107-116
 
 
@@ -35,7 +35,7 @@ def _add_business_days(start: datetime, n: int) -> datetime:
     added = 0
     while added < n:
         d = d + timedelta(days=1)
-        if d.weekday() < 5:  # Mon-Fri (public holidays not modelled — see spec)
+        if d.weekday() < 5:  # Mon-Fri (public holidays not modelled - see spec)
             added += 1
     return d
 

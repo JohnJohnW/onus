@@ -89,7 +89,7 @@ export default async function SettingsPage() {
             <span className="text-neutral-300">AUSTRAC enrolment</span>
             <span className="text-neutral-100">
               {titleize(firm.enrolment_status)}
-              {firm.austrac_enrolment_number ? ` · ${firm.austrac_enrolment_number}` : ""}
+              {firm.austrac_enrolment_number ? ` - ${firm.austrac_enrolment_number}` : ""}
             </span>
           </CardContent>
         </Card>

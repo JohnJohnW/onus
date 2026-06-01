@@ -1,4 +1,4 @@
-"""Onboarding completion — compute risk, set deadlines, finish onboarding."""
+"""Onboarding completion - compute risk, set deadlines, finish onboarding."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone

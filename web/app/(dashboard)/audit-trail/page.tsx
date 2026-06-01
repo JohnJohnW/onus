@@ -61,7 +61,7 @@ export default async function AuditTrailPage() {
                     <p className="text-sm capitalize text-neutral-200">{label(e.action)}</p>
                     <p className="mt-0.5 text-xs text-neutral-500">
                       {e.actor ?? "Onus"}
-                      {e.entity_type ? ` · ${e.entity_type.replace(/_/g, " ")}` : ""}
+                      {e.entity_type ? ` - ${e.entity_type.replace(/_/g, " ")}` : ""}
                     </p>
                   </div>
                   <span className="shrink-0 whitespace-nowrap text-xs text-neutral-500">

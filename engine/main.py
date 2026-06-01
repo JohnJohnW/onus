@@ -1,7 +1,7 @@
-"""Onus engine — FastAPI application entrypoint.
+"""Onus engine - FastAPI application entrypoint.
 
 Schema is managed by Alembic migrations (run via `alembic upgrade head` on
-container startup — see docker-compose.yml), not create_all.
+container startup - see docker-compose.yml), not create_all.
 """
 from fastapi import FastAPI
 

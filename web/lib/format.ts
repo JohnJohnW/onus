@@ -22,7 +22,7 @@ export function formatDate(iso: string): string {
   });
 }
 
-/** Tailwind text colour for a days-remaining value: red <14, amber <30, green ≥30. */
+/** Tailwind text colour for a days-remaining value: red <14, amber <30, green >=30. */
 export function daysRemainingTone(days: number | null): string {
   if (days === null) return "text-neutral-400";
   if (days < 14) return "text-red-400";

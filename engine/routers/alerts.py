@@ -1,4 +1,4 @@
-"""Suspicious-activity monitoring — indicators, alerts, and escalation to a draft SMR."""
+"""Suspicious-activity monitoring - indicators, alerts, and escalation to a draft SMR."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -22,7 +22,7 @@ from schemas import (
 
 router = APIRouter()
 
-# Suspicious-activity indicators for legal professionals (Risk insights §4).
+# Suspicious-activity indicators for legal professionals (Risk insights section 4).
 INDICATOR_CATALOGUE: list[tuple[str, str, str, str]] = [
     ("client", "Client risk", "obscured_bo", "Ownership structure obscures the true beneficial owner"),
     ("client", "Client risk", "reluctant_kyc", "Client avoids or is evasive about KYC"),

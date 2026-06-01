@@ -52,10 +52,10 @@ jobs:
           pytest engine/
           code=$?
           set -e
-          # pytest exit code 5 means "no tests collected" — expected for the
+          # pytest exit code 5 means "no tests collected" - expected for the
           # initial scaffold. Treat it as success; propagate any real failure.
           if [ "$code" -eq 5 ]; then
-            echo "pytest: no tests collected yet — OK for initial scaffold."
+            echo "pytest: no tests collected yet - OK for initial scaffold."
             exit 0
           fi
           exit "$code"

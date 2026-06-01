@@ -1,6 +1,6 @@
 """Optional dev seed for a firm (NEW schema).
 
-Disabled by default so it can't interfere with onboarding testing — onboarding
+Disabled by default so it can't interfere with onboarding testing - onboarding
 now generates real data. Run explicitly with --force:
 
     python seed.py <user-email> --force

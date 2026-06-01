@@ -157,7 +157,7 @@ function ReportForm({ evalId }: { evalId: string }) {
         value={summary}
         onChange={(e) => setSummary(e.target.value)}
         rows={2}
-        placeholder="Summary of the evaluation process and method…"
+        placeholder="Summary of the evaluation process and method..."
         className={`${field} w-full`}
       />
       {findings.map((f, i) => (
@@ -310,7 +310,7 @@ function EvaluationCard({ ev }: { ev: Evaluation }) {
           <p className="mb-1 text-xs uppercase tracking-wide text-neutral-500">Evaluator</p>
           {ev.evaluator ? (
             <p className="text-sm text-neutral-300">
-              {ev.evaluator.name} · {titleize(ev.evaluator.kind)}
+              {ev.evaluator.name} - {titleize(ev.evaluator.kind)}
             </p>
           ) : (
             <AssignEvaluatorForm evalId={ev.id} />
@@ -369,7 +369,7 @@ function ScheduleForm() {
           <input
             value={form.frequency_months}
             onChange={(e) => setForm({ ...form, frequency_months: e.target.value })}
-            placeholder="Frequency (months, ≤ 36)"
+            placeholder="Frequency (months, <= 36)"
             inputMode="numeric"
             className={field}
           />
@@ -413,7 +413,7 @@ export function EvaluationView({ data }: { data: EvaluationsData }) {
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Independent Evaluation</h1>
         <p className="mt-2 text-sm text-neutral-400">
-          An independent evaluation of your AML/CTF program — separate from your own reviews, by
+          An independent evaluation of your AML/CTF program - separate from your own reviews, by
           someone who isn&apos;t your compliance officer.
         </p>
       </header>
@@ -423,7 +423,7 @@ export function EvaluationView({ data }: { data: EvaluationsData }) {
         {!data.enrolment_known && (
           <span className="text-amber-200/70">
             {" "}
-            (Earliest staggered date — recalculated once your AUSTRAC enrolment number is recorded.)
+            (Earliest staggered date - recalculated once your AUSTRAC enrolment number is recorded.)
           </span>
         )}
       </div>
