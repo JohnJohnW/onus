@@ -17,6 +17,9 @@ services:
     environment:
       # Poll-based file watching makes Next.js hot reload reliable in Docker.
       WATCHPACK_POLLING: "true"
+      # The engine is reachable at host "engine" inside the Docker network
+      # (server-side calls from Next.js: next-auth login + signup proxy).
+      ENGINE_INTERNAL_URL: http://engine:8000
     ports:
       - "3000:3000"
     volumes:
