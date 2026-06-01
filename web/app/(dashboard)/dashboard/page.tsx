@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Greeting } from "@/components/dashboard/greeting";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { auth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -79,7 +80,7 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <header className="mb-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Good morning, {firstName}.</h1>
+        <Greeting firstName={firstName} />
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-400">
           <span>{firmName ?? "Your firm"}</span>
           <span aria-hidden>·</span>
