@@ -280,3 +280,125 @@ class ProgramOut(BaseModel):
 
 class ProgramApproveRequest(BaseModel):
     decision_reason: Optional[str] = None
+
+
+# ----- Clients & matters -----
+
+class ClientCreate(BaseModel):
+    type: str
+    display_name: str
+    risk_rating: Optional[str] = None
+    is_pep: bool = False
+    pep_kind: Optional[str] = None
+    sanctions_hit: bool = False
+    adverse_media_hit: bool = False
+
+
+class ClientUpdate(BaseModel):
+    risk_rating: Optional[str] = None
+    is_pep: Optional[bool] = None
+    pep_kind: Optional[str] = None
+    sanctions_hit: Optional[bool] = None
+    adverse_media_hit: Optional[bool] = None
+    source_of_funds: Optional[str] = None
+    source_of_wealth: Optional[str] = None
+
+
+class PartyCreate(BaseModel):
+    role: str
+    name: str
+    is_individual: bool = True
+    bo_basis: Optional[str] = None
+    ownership_pct: Optional[float] = None
+    is_pep: bool = False
+    pep_kind: Optional[str] = None
+    sanctions_hit: bool = False
+    verified: bool = False
+    verification_method: Optional[str] = None
+    steps_recorded: Optional[str] = None
+    details: Optional[dict] = None
+
+
+class PartyOut(BaseModel):
+    id: uuid.UUID
+    role: str
+    name: str
+    is_individual: bool
+    bo_basis: Optional[str] = None
+    ownership_pct: Optional[float] = None
+    is_pep: bool
+    pep_kind: Optional[str] = None
+    sanctions_hit: bool
+    verified: bool
+
+
+class CddRequest(BaseModel):
+    kyc_fields: Optional[dict] = None
+    matter_id: Optional[uuid.UUID] = None
+    source_of_funds: Optional[str] = None
+    source_of_wealth: Optional[str] = None
+
+
+class CddCheckOut(BaseModel):
+    id: uuid.UUID
+    level: str
+    edd_reason: Optional[str] = None
+    outcome: str
+    created_at: datetime
+
+
+class MatterCreate(BaseModel):
+    client_id: uuid.UUID
+    designated_service_key: str
+    description: Optional[str] = None
+
+
+class MatterOut(BaseModel):
+    id: uuid.UUID
+    client_id: uuid.UUID
+    designated_service_key: str
+    description: Optional[str] = None
+    status: str
+    cdd_gate_passed: bool
+    cdd_gate_basis: Optional[str] = None
+    risk_rating: Optional[str] = None
+    opened_at: datetime
+
+
+class ClientListItemOut(BaseModel):
+    id: uuid.UUID
+    type: str
+    display_name: str
+    risk_rating: Optional[str] = None
+    cdd_status: str
+    is_pep: bool
+    sanctions_hit: bool
+
+
+class ClientDetailOut(BaseModel):
+    id: uuid.UUID
+    type: str
+    display_name: str
+    status: str
+    risk_rating: Optional[str] = None
+    cdd_status: str
+    is_pep: bool
+    pep_kind: Optional[str] = None
+    sanctions_hit: bool
+    adverse_media_hit: bool
+    source_of_funds: Optional[str] = None
+    source_of_wealth: Optional[str] = None
+    parties: List[PartyOut]
+    matters: List[MatterOut]
+    cdd_checks: List[CddCheckOut]
+
+
+class CatalogueItem(BaseModel):
+    key: str
+    label: str
+    customer: Optional[str] = None
+
+
+class ClientsMetaOut(BaseModel):
+    customer_types: List[CatalogueItem]
+    designated_services: List[CatalogueItem]

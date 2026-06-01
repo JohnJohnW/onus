@@ -353,3 +353,97 @@ class AgentTask(Base):
     human_action_taken_by_user_id = Column(UUID(as_uuid=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class Client(Base):
+    """A customer of the firm (Act Pt 2 — customer due diligence)."""
+
+    __tablename__ = "clients"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    type = Column(String, nullable=False)  # individual | company_domestic | trust_* | ... (Rules Pt 6)
+    display_name = Column(String, nullable=False)
+    status = Column(String, nullable=False, server_default="active")
+    risk_rating = Column(String, nullable=True)  # low | medium | high
+    cdd_status = Column(String, nullable=False, server_default="not_started")  # not_started|in_progress|complete|blocked
+    is_pep = Column(Boolean, nullable=False, server_default=text("false"))
+    pep_kind = Column(String, nullable=True)  # foreign | domestic | intl_org
+    sanctions_hit = Column(Boolean, nullable=False, server_default=text("false"))
+    adverse_media_hit = Column(Boolean, nullable=False, server_default=text("false"))
+    source_of_funds = Column(Text, nullable=True)
+    source_of_wealth = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    parties = relationship("ClientParty", back_populates="client", cascade="all, delete-orphan")
+    matters = relationship("Matter", back_populates="client", cascade="all, delete-orphan")
+    cdd_checks = relationship("CddCheck", back_populates="client", cascade="all, delete-orphan")
+
+
+class ClientParty(Base):
+    """Beneficial owner / controller / agent / trust role (Act s28(2)(b)-(d))."""
+
+    __tablename__ = "client_parties"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False, index=True)
+    role = Column(String, nullable=False)  # beneficial_owner | controller | agent | trustee | ...
+    name = Column(String, nullable=False)
+    details = Column(JSONB, nullable=True)
+    bo_basis = Column(String, nullable=True)  # ownership_25pct | control | both | none | ceo_fallback | ...
+    ownership_pct = Column(Numeric(5, 2), nullable=True)
+    is_individual = Column(Boolean, nullable=False, server_default=text("true"))
+    is_pep = Column(Boolean, nullable=False, server_default=text("false"))
+    pep_kind = Column(String, nullable=True)
+    sanctions_hit = Column(Boolean, nullable=False, server_default=text("false"))
+    verified = Column(Boolean, nullable=False, server_default=text("false"))
+    verification_method = Column(String, nullable=True)
+    steps_recorded = Column(Text, nullable=True)  # s6-8(1)(c) all-reasonable-steps log
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    client = relationship("Client", back_populates="parties")
+
+
+class Matter(Base):
+    """A matter — a designated service provided to a client (Act s6 Tables 5/6)."""
+
+    __tablename__ = "matters"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False, index=True)
+    designated_service_key = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, nullable=False, server_default="open")
+    opened_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    cdd_gate_passed = Column(Boolean, nullable=False, server_default=text("false"))
+    cdd_gate_basis = Column(String, nullable=True)  # initial_cdd | delayed_s29 | acip_transitional
+    risk_rating = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    client = relationship("Client", back_populates="matters")
+
+
+class CddCheck(Base):
+    """A recorded CDD assessment (Act ss28-32; Rules Pt 6)."""
+
+    __tablename__ = "cdd_checks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False, index=True)
+    matter_id = Column(UUID(as_uuid=True), ForeignKey("matters.id"), nullable=True)
+    level = Column(String, nullable=False)  # simplified | standard | enhanced
+    kyc_fields = Column(JSONB, nullable=True)
+    edd_reason = Column(Text, nullable=True)
+    outcome = Column(String, nullable=False, server_default="pending")  # pass | fail | pending
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    verified_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    client = relationship("Client", back_populates="cdd_checks")

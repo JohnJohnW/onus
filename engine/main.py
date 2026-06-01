@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from routers import audit as audit_router
 from routers import auth as auth_router
+from routers import clients as clients_router
 from routers import dashboard as dashboard_router
 from routers import firms as firms_router
 from routers import governance as governance_router
@@ -24,6 +25,8 @@ app.include_router(
 )
 app.include_router(onboarding_router.router, prefix="/onboarding", tags=["onboarding"])
 app.include_router(program_router.router, prefix="/program", tags=["program"])
+app.include_router(clients_router.router, prefix="/clients", tags=["clients"])
+app.include_router(clients_router.matters_router, prefix="/matters", tags=["matters"])
 app.include_router(dashboard_router.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(audit_router.router, prefix="/audit-log", tags=["audit"])
 
