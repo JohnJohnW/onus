@@ -3,6 +3,5 @@
     .m { fill: #0a0a0a; }
     @media (prefers-color-scheme: dark) { .m { fill: #fafafa; } }
   </style>
-  <path class="m" fill-rule="evenodd" d="M50 10 A26 26 0 1 0 50 62 A26 26 0 1 0 50 10 Z M50 21.5 A14.5 14.5 0 1 0 50 50.5 A14.5 14.5 0 1 0 50 21.5 Z" />
-  <path class="m" d="M28 66 L50 79 L72 66 L72 76 L50 89 L28 76 Z" />
+  <path class="m" fill-rule="evenodd" d="M50 14 A36 36 0 1 0 50 86 A36 36 0 1 0 50 14 Z M50 30 L70 50 L50 70 L30 50 Z" />
 </svg>
