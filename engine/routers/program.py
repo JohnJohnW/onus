@@ -8,11 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ai.drafting import draft_policy
 from auth.dependencies import get_current_user
 from database import get_db
 from models import (
     AmlProgram,
     AuditLog,
+    Firm,
+    FirmRiskState,
     GovernanceApproval,
     GovernanceRole,
     Policy,
@@ -150,6 +153,39 @@ def update_policy(
         policy.body = body.body
     if body.status in ("draft", "approved"):
         policy.status = body.status
+    db.commit()
+    db.refresh(policy)
+    return _policy_out(policy)
+
+
+@router.post("/policies/{policy_id}/draft", response_model=PolicyOut)
+async def draft_policy_body(
+    policy_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PolicyOut:
+    """Ask Onus to draft the policy body (a draft for human review — Onus never approves)."""
+    policy = db.get(Policy, policy_id)
+    if policy is None or policy.firm_id != current_user.firm_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found.")
+    firm = db.get(Firm, current_user.firm_id)
+    risk = db.scalar(select(FirmRiskState).where(FirmRiskState.firm_id == current_user.firm_id))
+    draft = await draft_policy(
+        title=policy.title,
+        act_reference=policy.act_reference,
+        firm_name=firm.name if firm else None,
+        risk_rating=risk.overall_risk_rating if risk else None,
+    )
+    policy.body = draft
+    db.add(
+        AuditLog(
+            firm_id=current_user.firm_id,
+            user_id=current_user.id,
+            action="policy.ai_drafted",
+            entity_type="policy",
+            entity_id=policy.id,
+        )
+    )
     db.commit()
     db.refresh(policy)
     return _policy_out(policy)

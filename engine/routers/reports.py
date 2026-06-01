@@ -10,9 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ai.drafting import draft_smr_narrative
 from auth.dependencies import get_current_user
 from database import get_db
-from models import AuditLog, Record, Report, ReportDecisionLog, User
+from models import AuditLog, Client, Matter, Record, Report, ReportDecisionLog, User
 from schemas import (
     DecisionRequest,
     RecordOut,
@@ -221,6 +222,44 @@ def record_decision(
     )
     if not body.reasonable_grounds and r.status == "draft":
         r.status = "not_required"
+    db.commit()
+    db.refresh(r)
+    return _report_out(r)
+
+
+@router.post("/{report_id}/draft-narrative", response_model=ReportOut)
+async def draft_narrative(
+    report_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReportOut:
+    """Ask Onus to draft the SMR 'grounds for suspicion' (a draft for human review)."""
+    r = db.get(Report, report_id)
+    if r is None or r.firm_id != current_user.firm_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+    if r.type != "smr":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only SMRs have a narrative.")
+    client = db.get(Client, r.related_client_id) if r.related_client_id else None
+    matter = db.get(Matter, r.related_matter_id) if r.related_matter_id else None
+    indicator = (r.payload or {}).get("indicator") or "suspicious activity"
+    draft = await draft_smr_narrative(
+        indicator=indicator,
+        client_name=client.display_name if client else None,
+        matter=matter.description if matter else None,
+    )
+    payload = dict(r.payload or {})
+    payload["grounds_for_suspicion"] = draft
+    r.payload = payload
+    r.content_hash = _hash(payload)
+    db.add(
+        AuditLog(
+            firm_id=current_user.firm_id,
+            user_id=current_user.id,
+            action="report.ai_drafted",
+            entity_type="report",
+            entity_id=r.id,
+        )
+    )
     db.commit()
     db.refresh(r)
     return _report_out(r)
