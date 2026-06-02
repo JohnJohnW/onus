@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from agent_log import record_agent_task
 from ai.drafting import draft_policy
 from auth.dependencies import get_current_user
 from database import get_db
@@ -192,6 +193,15 @@ async def draft_policy_body(
             entity_type="policy",
             entity_id=policy.id,
         )
+    )
+    record_agent_task(
+        db,
+        current_user.firm_id,
+        task_type="policy_drafted",
+        summary=f'Drafted the "{policy.title}" policy for your review',
+        human_action_required=True,
+        human_action_type="review_policy",
+        input_state={"policy_id": str(policy.id)},
     )
     db.commit()
     db.refresh(policy)

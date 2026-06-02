@@ -676,3 +676,20 @@ class ScreenResultOut(BaseModel):
     list_fetched_at: Optional[datetime] = None
     match_count: int
     candidates: List[ScreenCandidate]
+
+
+# ----- Matter classification (AI) -----
+
+
+class MatterClassifyRequest(BaseModel):
+    description: str
+    client_id: Optional[uuid.UUID] = None
+
+
+class MatterClassifyOut(BaseModel):
+    service_key: Optional[str] = None
+    service_label: Optional[str] = None
+    is_designated_service: Optional[bool] = None
+    customer: Optional[str] = None
+    cdd_tier: Optional[str] = None
+    rationale: str = ""
