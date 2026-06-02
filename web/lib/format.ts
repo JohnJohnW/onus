@@ -13,9 +13,12 @@ export function relativeTime(iso: string): string {
   return `${months} month${months === 1 ? "" : "s"} ago`;
 }
 
-/** Australian-style date, e.g. "9 Jun 2026". */
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-AU", {
+/** Australian-style date, e.g. "9 Jun 2026". Returns "" for missing/invalid input. */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-AU", {
     day: "numeric",
     month: "short",
     year: "numeric",

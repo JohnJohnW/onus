@@ -63,43 +63,64 @@ function ReportRow({ report }: { report: Report }) {
   const [reference, setReference] = useState("");
   const [lodging, setLodging] = useState(false);
   const [grounds, setGrounds] = useState(report.grounds ?? "");
+  const [err, setErr] = useState<string | null>(null);
 
-  async function patch(body: unknown) {
+  const active = report.status === "draft" || report.status === "ready";
+  const groundsDirty = grounds !== (report.grounds ?? "");
+
+  async function detail(res: Response, fallback: string): Promise<string> {
+    const data = await res.json().catch(() => null);
+    return (data && typeof data.detail === "string" && data.detail) || fallback;
+  }
+
+  async function patch(body: unknown): Promise<boolean> {
     setBusy(true);
-    await fetch(`/api/reports/${report.id}`, {
+    setErr(null);
+    const res = await fetch(`/api/reports/${report.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     setBusy(false);
+    if (!res.ok) {
+      setErr(await detail(res, "That action could not be completed."));
+      return false;
+    }
     router.refresh();
+    return true;
   }
   async function dismiss() {
     setBusy(true);
-    await fetch(`/api/reports/${report.id}/decision`, {
+    setErr(null);
+    const res = await fetch(`/api/reports/${report.id}/decision`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reasonable_grounds: false, reasoning: "No reasonable grounds to report." }),
     });
     setBusy(false);
+    if (!res.ok) {
+      setErr(await detail(res, "Could not record the decision."));
+      return;
+    }
     router.refresh();
   }
   async function draftNarrative() {
+    if (groundsDirty && !window.confirm("Replace your unsaved grounds with an Onus draft?")) return;
     setBusy(true);
+    setErr(null);
     const res = await fetch(`/api/reports/${report.id}/draft-narrative`, { method: "POST" });
-    if (res.ok) {
-      const data = await res.json().catch(() => null);
-      if (data?.grounds != null) setGrounds(data.grounds);
-    }
     setBusy(false);
+    if (!res.ok) {
+      setErr(await detail(res, "Onus could not draft the narrative."));
+      return;
+    }
+    const data = await res.json().catch(() => null);
+    if (data?.grounds != null) setGrounds(data.grounds);
     router.refresh();
   }
   async function saveGrounds() {
     await patch({ grounds });
   }
-
-  const active = report.status === "draft" || report.status === "ready";
-  const groundsDirty = grounds !== (report.grounds ?? "");
 
   return (
     <div className="px-5 py-4">
@@ -191,6 +212,7 @@ function ReportRow({ report }: { report: Report }) {
           </button>
         </div>
       )}
+      {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
     </div>
   );
 }
@@ -204,6 +226,7 @@ export function ReportingView({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [formErr, setFormErr] = useState<string | null>(null);
   const [form, setForm] = useState({
     type: "smr",
     tf: false,
@@ -216,6 +239,7 @@ export function ReportingView({
   async function draft(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setFormErr(null);
     const payload: Record<string, unknown> = { type: form.type };
     if (form.type === "smr") {
       payload.tf = form.tf;
@@ -233,8 +257,11 @@ export function ReportingView({
     });
     setBusy(false);
     if (res.ok) {
-      setForm({ ...form, grounds: "", amount: "", reporting_period_end: "" });
+      setForm((f) => ({ ...f, grounds: "", amount: "", reporting_period_end: "" }));
       router.refresh();
+    } else {
+      const d = await res.json().catch(() => null);
+      setFormErr((d && typeof d.detail === "string" && d.detail) || "Could not create the report.");
     }
   }
 
@@ -324,6 +351,7 @@ export function ReportingView({
             <Button type="submit" size="sm" disabled={busy}>
               {busy ? "Drafting..." : "Draft report"}
             </Button>
+            {formErr && <p className="text-xs text-red-400">{formErr}</p>}
           </form>
         </CardContent>
       </Card>
