@@ -1,7 +1,8 @@
 # Onus - Feature Specifications (Regulated Sections)
 
-> **Status: specifications, not yet built.** These documents spec the AML/CTF
-> functionality that the Onus UI currently exposes as "coming soon" placeholders:
+> **Status: built.** These documents spec the AML/CTF functionality that Onus now
+> implements; they remain the source of truth for each section's obligations and
+> AUSTRAC citations, kept in step with the code. Originally specced for:
 > **Clients & Matters, Compliance Program, Reporting, and Independent Evaluation** - > plus the enhancements needed to make the already-built **Risk Profile** match
 > AUSTRAC's risk-assessment requirements.
 
@@ -39,7 +40,7 @@ the old "Part A / Part B" split (Program overview p.3):
         ongoing: REVIEW & UPDATE (Step 4, >= every 3 yrs + triggers)
                  INDEPENDENT EVALUATION (Step 5, >= every 3 yrs)
                  RECORD KEEPING (full, accurate, secure)
-                 REPORTING (SMR / TTR / IFTI / annual report)
+                 REPORTING (SMR / TTR / IVTS / annual report)
 ```
 
 > Note: **Do not use "Part A / Part B" language in the product.** The supplied
@@ -54,15 +55,15 @@ the old "Part A / Part B" split (Program overview p.3):
 
 | AUSTRAC obligation (source) | Onus section | Build status | Spec |
 |---|---|---|---|
-| Establish governance framework (Step 1) | Compliance Program -> Governance | Partly built (roles captured at onboarding) | [compliance-program.md](compliance-program.md) |
-| Identify & assess ML/TF/PF risk (Step 2) | **Risk Profile** | Built; **incomplete vs AUSTRAC** | [risk-profile-enhancements.md](risk-profile-enhancements.md) |
-| AML/CTF policies (Step 3, policy half) | Compliance Program -> Policies | Not built | [compliance-program.md](compliance-program.md) |
-| Customer due diligence (Step 3, CDD half) | **Clients & Matters** | Not built | [clients-and-matters.md](clients-and-matters.md) |
-| Suspicious-activity indicators (Risk insights) | Clients & Matters -> Monitoring | Not built | [clients-and-matters.md](clients-and-matters.md) |
-| Review & update the program (Step 4) | Compliance Program -> Program lifecycle | Partly modelled (`ReviewTrigger`) | [compliance-program.md](compliance-program.md) |
-| Reporting: SMR / TTR / IFTI / annual report / enrolment | **Reporting** | Not built (enrolment deadline only) | [reporting-and-recordkeeping.md](reporting-and-recordkeeping.md) |
-| Record keeping & retention (Record keeping) | Reporting -> Records (cross-cutting) | Audit Trail built | [reporting-and-recordkeeping.md](reporting-and-recordkeeping.md) |
-| Independent evaluation (Step 5) | **Evaluation** | Not built | [independent-evaluation.md](independent-evaluation.md) |
+| Establish governance framework (Step 1) | Compliance Program -> Governance | Built (roles + eligibility gate in Settings) | [compliance-program.md](compliance-program.md) |
+| Identify & assess ML/TF/PF risk (Step 2) | **Risk Profile** | Built | [risk-profile-enhancements.md](risk-profile-enhancements.md) |
+| AML/CTF policies (Step 3, policy half) | Compliance Program -> Policies | Built | [compliance-program.md](compliance-program.md) |
+| Customer due diligence (Step 3, CDD half) | **Clients & Matters** | Built | [clients-and-matters.md](clients-and-matters.md) |
+| Suspicious-activity indicators (Risk insights) | Clients & Matters -> Monitoring | Built (manual alerts; no automated detection) | [clients-and-matters.md](clients-and-matters.md) |
+| Review & update the program (Step 4) | Compliance Program -> Program lifecycle | Built | [compliance-program.md](compliance-program.md) |
+| Reporting: SMR / TTR / IVTS / annual report / enrolment | **Reporting** | Built | [reporting-and-recordkeeping.md](reporting-and-recordkeeping.md) |
+| Record keeping & retention (Record keeping) | Reporting -> Records (cross-cutting) | Built (records on lodgement; register thin) | [reporting-and-recordkeeping.md](reporting-and-recordkeeping.md) |
+| Independent evaluation (Step 5) | **Evaluation** | Built | [independent-evaluation.md](independent-evaluation.md) |
 
 Already shipped and **not** re-specced here: Dashboard (agent feed), Audit Trail,
 Settings, Auth, the onboarding wizard.
