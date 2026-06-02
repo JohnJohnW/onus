@@ -11,8 +11,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 config = context.config
 
-# Prefer DATABASE_URL from the environment (Docker / .env.local).
-_db_url = os.environ.get("DATABASE_URL")
+# Migrations run as the owner/superuser (create tables, roles, policies). The app
+# instead connects as a non-superuser role that RLS applies to. Prefer the dedicated
+# migration URL, falling back to DATABASE_URL for host/dev use.
+_db_url = os.environ.get("ALEMBIC_DATABASE_URL") or os.environ.get("DATABASE_URL")
 if _db_url:
     config.set_main_option("sqlalchemy.url", _db_url)
 
