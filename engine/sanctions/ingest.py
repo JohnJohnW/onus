@@ -48,7 +48,8 @@ def rows_to_entries(rows: list[dict]) -> list[dict]:
                 "place_of_birth": _pick(norm, "place of birth"),
                 "citizenship": _pick(norm, "citizenship", "nationality"),
                 "address": _pick(norm, "address"),
-                "listing_info": _pick(norm, "listing", "committee", "additional"),
+                # "listing" for sanctions; "position"/"role"/"title" capture a PEP's office.
+                "listing_info": _pick(norm, "listing", "committee", "additional", "position", "role", "title"),
                 "raw": raw,
             }
             order.append(key)
@@ -105,11 +106,18 @@ def content_hash(entries: list[dict]) -> str:
 
 
 def import_version(
-    db: Session, *, source: str, origin: str, entries: list[dict], note: Optional[str] = None
+    db: Session,
+    *,
+    source: str,
+    origin: str,
+    entries: list[dict],
+    list_type: str = "sanctions",
+    note: Optional[str] = None,
 ) -> SanctionsListVersion:
-    """Persist entries as a new current snapshot, demoting prior versions of the
-    same source. Returns the new version row."""
+    """Persist entries as a new current snapshot of a list_type (sanctions | pep),
+    demoting the prior current version of that same type. Returns the new version."""
     version = SanctionsListVersion(
+        list_type=list_type,
         source=source,
         origin=origin,
         fetched_at=datetime.now(timezone.utc),
@@ -120,7 +128,10 @@ def import_version(
     )
     db.execute(
         update(SanctionsListVersion)
-        .where(SanctionsListVersion.source == source, SanctionsListVersion.is_current.is_(True))
+        .where(
+            SanctionsListVersion.list_type == list_type,
+            SanctionsListVersion.is_current.is_(True),
+        )
         .values(is_current=False)
     )
     db.add(version)

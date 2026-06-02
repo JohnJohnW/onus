@@ -289,6 +289,56 @@ def test_governance_role_unique_constraint(client):
         db.close()
 
 
+def test_pep_screening_is_a_separate_list(client):
+    """PEP uses the same screening infrastructure under a distinct list_type, so a
+    PEP list can be loaded and screened independently of the sanctions list."""
+    from sqlalchemy import select
+
+    from database import SessionLocal
+    from models import SanctionsListVersion
+
+    _, token = _signup(client, "PEP Firm")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    up = client.post(
+        "/sanctions/upload",
+        files={
+            "file": (
+                "pep.csv",
+                b"Reference,Name of Individual or Entity,Type,Position\nP1,Jane Official,Individual,Minister\n",
+                "text/csv",
+            )
+        },
+        data={"list_type": "pep"},
+        headers=headers,
+    )
+    assert up.status_code == 200, up.text
+    assert up.json()["list_type"] == "pep" and up.json()["loaded"]
+
+    pep_status = client.get("/sanctions/status?list_type=pep", headers=headers).json()
+    assert pep_status["loaded"] and pep_status["entry_count"] == 1
+
+    # Screen against PEP (record=False so no screening row pins the version for cleanup).
+    screened = client.post(
+        "/sanctions/screen",
+        json={"name": "Jane Official", "list_type": "pep", "record": False},
+        headers=headers,
+    ).json()
+    assert screened["list_type"] == "pep"
+    assert screened["match_count"] == 1
+
+    # Clean up the global PEP list so it doesn't leak into other firms' views.
+    db = SessionLocal()
+    try:
+        for v in db.scalars(
+            select(SanctionsListVersion).where(SanctionsListVersion.list_type == "pep")
+        ).all():
+            db.delete(v)
+        db.commit()
+    finally:
+        db.close()
+
+
 def test_rls_fails_closed_without_firm_context():
     """At the database, with no app.current_firm_id set, RLS returns zero firm-scoped
     rows even though the app connects as the table owner (FORCE ROW LEVEL SECURITY).

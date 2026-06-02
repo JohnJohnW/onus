@@ -643,6 +643,7 @@ class EvaluationsOut(BaseModel):
 
 
 class SanctionsStatusOut(BaseModel):
+    list_type: str = "sanctions"  # sanctions | pep
     loaded: bool = False
     source: Optional[str] = None
     origin: Optional[str] = None  # auto_fetch | manual_upload
@@ -654,6 +655,7 @@ class SanctionsStatusOut(BaseModel):
 
 class ScreenRequest(BaseModel):
     name: str
+    list_type: str = "sanctions"  # sanctions | pep
     subject_type: Optional[str] = None  # client | party | adhoc
     subject_id: Optional[uuid.UUID] = None
     threshold: Optional[float] = None
@@ -674,6 +676,7 @@ class ScreenCandidate(BaseModel):
 
 class ScreenResultOut(BaseModel):
     query_name: str
+    list_type: str = "sanctions"
     list_fetched_at: Optional[datetime] = None
     match_count: int
     candidates: List[ScreenCandidate]

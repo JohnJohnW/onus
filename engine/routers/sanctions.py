@@ -1,9 +1,11 @@
-"""Sanctions screening against the DFAT Consolidated List (Rules s5-3).
+"""Sanctions and PEP screening (AML/CTF Rules s5-3 sanctions; s5-5 PEPs).
 
-The list is global reference data, ingested as versioned snapshots (auto-fetched
-from DFAT or uploaded manually). Screening surfaces candidate matches for a human
-to adjudicate; Onus never auto-clears or auto-blocks. Each screening can be
-recorded for the audit trail, noting exactly which list version was used.
+Both are list-based: a list is ingested as versioned snapshots (auto-fetched or
+uploaded), and a name is matched against the current snapshot of a list_type
+(sanctions | pep). The same ingestion, versioning and matcher serve both; only the
+data source differs. Screening surfaces candidates for a human to adjudicate - Onus
+never auto-clears or auto-blocks. Adverse-media has no authoritative list, so it
+stays a documented manual check, not a faked list here.
 """
 from __future__ import annotations
 
@@ -11,7 +13,7 @@ import os
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -26,51 +28,74 @@ from schemas import SanctionsStatusOut, ScreenRequest, ScreenResultOut
 
 router = APIRouter()
 
-SOURCE = "dfat_consolidated"
 DEFAULT_DFAT_URL = "https://www.dfat.gov.au/sites/default/files/regulation8_consolidated.xlsx"
 
+# list_type -> (default source name, env var for the fetch URL, built-in default URL, label)
+_LISTS = {
+    "sanctions": ("dfat_consolidated", "DFAT_CONSOLIDATED_LIST_URL", DEFAULT_DFAT_URL, "sanctions"),
+    "pep": ("pep_list", "OPENSANCTIONS_PEP_URL", "", "PEP"),
+}
 
-def _list_url() -> str:
-    return os.getenv("DFAT_CONSOLIDATED_LIST_URL", DEFAULT_DFAT_URL)
+
+def _config(list_type: str):
+    cfg = _LISTS.get(list_type)
+    if cfg is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown list type.")
+    return cfg
 
 
-def _current(db: Session) -> Optional[SanctionsListVersion]:
+def _list_url(list_type: str) -> str:
+    _source, env_var, default_url, _label = _config(list_type)
+    return os.getenv(env_var, default_url)
+
+
+def _current(db: Session, list_type: str) -> Optional[SanctionsListVersion]:
     return db.scalar(
         select(SanctionsListVersion).where(
-            SanctionsListVersion.source == SOURCE,
+            SanctionsListVersion.list_type == list_type,
             SanctionsListVersion.is_current.is_(True),
         )
     )
 
 
-def _status(db: Session) -> SanctionsStatusOut:
-    v = _current(db)
+def _status(db: Session, list_type: str) -> SanctionsStatusOut:
+    v = _current(db, list_type)
     return SanctionsStatusOut(
+        list_type=list_type,
         loaded=v is not None,
         source=v.source if v else None,
         origin=v.origin if v else None,
         fetched_at=v.fetched_at if v else None,
         entry_count=v.entry_count if v else 0,
         content_hash=v.content_hash if v else None,
-        url_configured=bool(_list_url()),
+        url_configured=bool(_list_url(list_type)),
     )
 
 
 @router.get("/status", response_model=SanctionsStatusOut)
 def get_status(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    list_type: str = Query("sanctions"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> SanctionsStatusOut:
-    return _status(db)
+    _config(list_type)
+    return _status(db, list_type)
 
 
 @router.post("/refresh", response_model=SanctionsStatusOut)
 async def refresh(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    list_type: str = Query("sanctions"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> SanctionsStatusOut:
-    """Auto-fetch the latest DFAT Consolidated List from the configured URL."""
-    url = _list_url()
+    """Auto-fetch the latest list from the configured URL (sanctions: DFAT)."""
+    source, _env, _default, label = _config(list_type)
+    url = _list_url(list_type)
     if not url:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No DFAT list URL configured.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No {label} list URL is configured. Upload the file manually instead.",
+        )
     try:
         async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
             resp = await client.get(url)
@@ -79,7 +104,7 @@ async def refresh(
     except Exception as exc:  # network/HTTP failure -> manual upload is the fallback
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Could not fetch the DFAT list ({exc}). You can upload the file manually instead.",
+            detail=f"Could not fetch the {label} list ({exc}). You can upload it manually instead.",
         )
     try:
         entries = rows_to_entries(parse_xlsx(content))
@@ -87,17 +112,19 @@ async def refresh(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Could not parse the list: {exc}")
     if not entries:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No entries found in the fetched file.")
-    import_version(db, source=SOURCE, origin="auto_fetch", entries=entries, note="Auto-fetched from DFAT")
-    return _status(db)
+    import_version(db, source=source, origin="auto_fetch", entries=entries, list_type=list_type, note=f"Auto-fetched {label}")
+    return _status(db, list_type)
 
 
 @router.post("/upload", response_model=SanctionsStatusOut)
 async def upload(
     file: UploadFile = File(...),
+    list_type: str = Form("sanctions"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> SanctionsStatusOut:
-    """Manual fallback: upload a DFAT Consolidated List file (.xlsx or .csv)."""
+    """Manual fallback: upload a list file (.xlsx or .csv) for sanctions or PEP."""
+    source, _env, _default, _label = _config(list_type)
     content = await file.read()
     name = (file.filename or "").lower()
     try:
@@ -114,8 +141,8 @@ async def upload(
     entries = rows_to_entries(rows)
     if not entries:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No recognisable entries in the file.")
-    import_version(db, source=SOURCE, origin="manual_upload", entries=entries, note=f"Uploaded {file.filename}")
-    return _status(db)
+    import_version(db, source=source, origin="manual_upload", entries=entries, list_type=list_type, note=f"Uploaded {file.filename}")
+    return _status(db, list_type)
 
 
 @router.post("/screen", response_model=ScreenResultOut)
@@ -124,14 +151,16 @@ def screen(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ScreenResultOut:
+    list_type = body.list_type or "sanctions"
+    _source, _env, _default, label = _config(list_type)
     name = (body.name or "").strip()
     if not name:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A name is required to screen.")
-    version = _current(db)
+    version = _current(db, list_type)
     if version is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="No sanctions list is loaded. Load the DFAT list (refresh or upload) first.",
+            detail=f"No {label} list is loaded. Load it (refresh or upload) first.",
         )
     rows = db.scalars(select(SanctionsEntry).where(SanctionsEntry.version_id == version.id)).all()
     entries = [
@@ -167,6 +196,7 @@ def screen(
         db.add(
             SanctionsScreening(
                 firm_id=current_user.firm_id,
+                list_type=list_type,
                 subject_type=body.subject_type,
                 subject_id=body.subject_id,
                 query_name=name,
@@ -180,18 +210,19 @@ def screen(
         record_agent_task(
             db,
             current_user.firm_id,
-            task_type="sanctions_screened",
+            task_type=f"{list_type}_screened",
             summary=(
-                f"Screened \"{name}\" against the DFAT list: {len(candidates)} potential match"
+                f"Screened \"{name}\" against the {label} list: {len(candidates)} potential match"
                 f"{'' if len(candidates) == 1 else 'es'}"
             ),
             human_action_required=len(candidates) > 0,
-            human_action_type="review_sanctions_matches" if candidates else None,
-            input_state={"query_name": name},
+            human_action_type=f"review_{list_type}_matches" if candidates else None,
+            input_state={"query_name": name, "list_type": list_type},
         )
         db.commit()
     return ScreenResultOut(
         query_name=name,
+        list_type=list_type,
         list_fetched_at=version.fetched_at,
         match_count=len(candidates),
         candidates=candidates,

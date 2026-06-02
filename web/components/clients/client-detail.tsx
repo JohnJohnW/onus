@@ -300,7 +300,9 @@ export function ClientDetailView({
     rationale: string;
   } | null>(null);
   const [clientScreen, setClientScreen] = useState<ScreenResult | null>(null);
+  const [clientPep, setClientPep] = useState<ScreenResult | null>(null);
   const [partyScreen, setPartyScreen] = useState<ScreenResult | null>(null);
+  const [partyPep, setPartyPep] = useState<ScreenResult | null>(null);
   const [screening, setScreening] = useState<null | "client" | "party">(null);
   const latestCdd = client.cdd_checks[0];
 
@@ -328,11 +330,22 @@ export function ClientDetailView({
     return res.ok;
   }
 
-  async function screenName(name: string, subjectType: string, subjectId?: string): Promise<ScreenResult | null> {
+  async function screenName(
+    name: string,
+    listType: string,
+    subjectType: string,
+    subjectId?: string,
+  ): Promise<ScreenResult | null> {
     const res = await fetch("/api/sanctions/screen", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, subject_type: subjectType, subject_id: subjectId ?? null, record: true }),
+      body: JSON.stringify({
+        name,
+        list_type: listType,
+        subject_type: subjectType,
+        subject_id: subjectId ?? null,
+        record: true,
+      }),
     });
     if (res.status === 409) return { query_name: name, match_count: 0, candidates: [], noList: true };
     if (!res.ok) return null;
@@ -342,19 +355,33 @@ export function ClientDetailView({
   async function screenClient() {
     setScreening("client");
     setClientScreen(null);
-    const result = await screenName(client.display_name, "client", client.id);
+    setClientPep(null);
+    const [san, pep] = await Promise.all([
+      screenName(client.display_name, "sanctions", "client", client.id),
+      screenName(client.display_name, "pep", "client", client.id),
+    ]);
     setScreening(null);
-    setClientScreen(result);
+    setClientScreen(san);
+    setClientPep(pep);
   }
 
   async function screenParty() {
     if (!party.name.trim()) return;
     setScreening("party");
     setPartyScreen(null);
-    const result = await screenName(party.name.trim(), "party");
+    setPartyPep(null);
+    const [san, pep] = await Promise.all([
+      screenName(party.name.trim(), "sanctions", "party"),
+      screenName(party.name.trim(), "pep", "party"),
+    ]);
     setScreening(null);
-    setPartyScreen(result);
-    if (result && result.match_count > 0) setParty((p) => ({ ...p, sanctions_hit: true }));
+    setPartyScreen(san);
+    setPartyPep(pep);
+    setParty((p) => ({
+      ...p,
+      sanctions_hit: (san?.match_count ?? 0) > 0 ? true : p.sanctions_hit,
+      is_pep: (pep?.match_count ?? 0) > 0 ? true : p.is_pep,
+    }));
   }
 
   async function runCdd() {
@@ -431,33 +458,70 @@ export function ClientDetailView({
       {/* Sanctions screening */}
       <section className="mb-8">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
-          Sanctions screening
+          Sanctions &amp; PEP screening
         </h2>
         <Card className="border-neutral-800 bg-neutral-900/50">
           <CardContent className="space-y-3 p-5 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="text-neutral-300">
-                Screen &quot;{client.display_name}&quot; against the DFAT Consolidated List (Rules s5-3).
+                Screen &quot;{client.display_name}&quot; against the DFAT sanctions list (Rules s5-3) and
+                the PEP list (Rules s5-5).
               </span>
               <Button size="sm" variant="outline" disabled={busy || screening === "client"} onClick={screenClient}>
-                {screening === "client" ? "Screening..." : "Screen against sanctions"}
+                {screening === "client" ? "Screening..." : "Screen sanctions & PEP"}
               </Button>
             </div>
-            {clientScreen && <ScreenResultView result={clientScreen} />}
-            {clientScreen && !clientScreen.noList && clientScreen.match_count > 0 && !client.sanctions_hit && (
-              <Button size="sm" disabled={busy} onClick={() => patch(`/api/clients/${client.id}`, { sanctions_hit: true })}>
-                Confirm match - block CDD
-              </Button>
+
+            {clientScreen && (
+              <div className="space-y-1.5">
+                <p className="text-xs uppercase tracking-wide text-neutral-500">Sanctions</p>
+                <ScreenResultView result={clientScreen} />
+                {!clientScreen.noList && clientScreen.match_count > 0 && !client.sanctions_hit && (
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => patch(`/api/clients/${client.id}`, { sanctions_hit: true })}
+                  >
+                    Confirm match - block CDD
+                  </Button>
+                )}
+                {client.sanctions_hit && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => patch(`/api/clients/${client.id}`, { sanctions_hit: false })}
+                  >
+                    Clear sanctions flag
+                  </Button>
+                )}
+              </div>
             )}
-            {client.sanctions_hit && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => patch(`/api/clients/${client.id}`, { sanctions_hit: false })}
-              >
-                Clear sanctions flag
-              </Button>
+
+            {clientPep && (
+              <div className="space-y-1.5 border-t border-neutral-800 pt-3">
+                <p className="text-xs uppercase tracking-wide text-neutral-500">PEP</p>
+                <ScreenResultView result={clientPep} />
+                {!clientPep.noList && clientPep.match_count > 0 && !client.is_pep && (
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => patch(`/api/clients/${client.id}`, { is_pep: true, pep_kind: "foreign" })}
+                  >
+                    Confirm PEP (enhanced CDD)
+                  </Button>
+                )}
+                {client.is_pep && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => patch(`/api/clients/${client.id}`, { is_pep: false, pep_kind: null })}
+                  >
+                    Clear PEP flag
+                  </Button>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -567,7 +631,18 @@ export function ClientDetailView({
                   Add owner
                 </Button>
               </div>
-              {partyScreen && <ScreenResultView result={partyScreen} />}
+              {partyScreen && (
+                <div className="space-y-1">
+                  <p className="text-xs uppercase tracking-wide text-neutral-500">Sanctions</p>
+                  <ScreenResultView result={partyScreen} />
+                </div>
+              )}
+              {partyPep && (
+                <div className="space-y-1">
+                  <p className="text-xs uppercase tracking-wide text-neutral-500">PEP</p>
+                  <ScreenResultView result={partyPep} />
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>
