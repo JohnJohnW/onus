@@ -166,6 +166,13 @@ function LifecycleSection({ lifecycle }: { lifecycle: Lifecycle | null }) {
 
   if (!lifecycle) return null;
 
+  async function resolveTrigger(id: string) {
+    setBusy(true);
+    const res = await fetch(`/api/program/triggers/${id}/resolve`, { method: "POST" });
+    setBusy(false);
+    if (res.ok) router.refresh();
+  }
+
   async function logChange(e: React.FormEvent) {
     e.preventDefault();
     if (!change.change_summary.trim()) return;
@@ -216,9 +223,19 @@ function LifecycleSection({ lifecycle }: { lifecycle: Lifecycle | null }) {
             ) : (
               <ul className="space-y-1">
                 {lifecycle.open_triggers.map((t) => (
-                  <li key={t.id} className="text-sm text-amber-300">
-                    {humanize(t.trigger_type)}
-                    {t.description ? <span className="text-neutral-400"> - {t.description}</span> : ""}
+                  <li key={t.id} className="flex items-start justify-between gap-3 text-sm text-amber-300">
+                    <span>
+                      {humanize(t.trigger_type)}
+                      {t.description ? <span className="text-neutral-400"> - {t.description}</span> : ""}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => resolveTrigger(t.id)}
+                      disabled={busy}
+                      className="shrink-0 text-xs text-neutral-500 hover:text-neutral-200"
+                    >
+                      Mark resolved
+                    </button>
                   </li>
                 ))}
               </ul>

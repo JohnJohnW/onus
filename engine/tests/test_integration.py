@@ -162,6 +162,59 @@ def test_document_upload_list_download_and_isolation(client):
     assert bad.status_code == 400
 
 
+def _firm_id(token: str) -> str:
+    from jose import jwt as jose_jwt
+
+    return jose_jwt.get_unverified_claims(token)["firm_id"]
+
+
+def test_manual_deadline_completion(client):
+    _, token = _signup(client, "Deadline Firm")
+    headers = {"Authorization": f"Bearer {token}"}
+    fid = _firm_id(token)
+    # Marking enrolment in progress creates the enrolment deadline.
+    assert client.patch(f"/firms/{fid}", json={"enrolment_status": "in_progress"}, headers=headers).status_code == 200
+    deadlines = client.get("/dashboard/summary", headers=headers).json()["upcoming_deadlines"]
+    enrol = next((d for d in deadlines if "nrol" in d["name"]), None)
+    assert enrol is not None, deadlines
+    assert client.post(f"/dashboard/deadlines/{enrol['id']}/complete", headers=headers).status_code == 200
+    after = client.get("/dashboard/summary", headers=headers).json()["upcoming_deadlines"]
+    assert all(d["id"] != enrol["id"] for d in after)
+
+
+def test_enrolment_deadline_auto_completes(client):
+    _, token = _signup(client, "Enrol Firm")
+    headers = {"Authorization": f"Bearer {token}"}
+    fid = _firm_id(token)
+    client.patch(f"/firms/{fid}", json={"enrolment_status": "in_progress"}, headers=headers)
+    before = client.get("/dashboard/summary", headers=headers).json()["upcoming_deadlines"]
+    assert any("nrol" in d["name"] for d in before)
+    client.patch(
+        f"/firms/{fid}",
+        json={"enrolment_status": "enrolled", "austrac_enrolment_number": "100000123"},
+        headers=headers,
+    )
+    after = client.get("/dashboard/summary", headers=headers).json()["upcoming_deadlines"]
+    assert not any("nrol" in d["name"] for d in after)
+
+
+def test_review_trigger_resolution(client):
+    _, token = _signup(client, "Trigger Firm")
+    headers = {"Authorization": f"Bearer {token}"}
+    created = client.post(
+        "/program/triggers",
+        json={"trigger_type": "significant_change", "description": "New service line"},
+        headers=headers,
+    )
+    assert created.status_code == 200, created.text
+    tid = created.json()["id"]
+    open_ids = {t["id"] for t in client.get("/program/lifecycle", headers=headers).json()["open_triggers"]}
+    assert tid in open_ids
+    assert client.post(f"/program/triggers/{tid}/resolve", headers=headers).status_code == 200
+    open_after = {t["id"] for t in client.get("/program/lifecycle", headers=headers).json()["open_triggers"]}
+    assert tid not in open_after
+
+
 def test_rls_fails_closed_without_firm_context():
     """At the database, with no app.current_firm_id set, RLS returns zero firm-scoped
     rows even though the app connects as the table owner (FORCE ROW LEVEL SECURITY).

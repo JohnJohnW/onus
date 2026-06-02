@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from database import get_db
+from deadlines import complete_deadlines
 from models import (
     AuditLog,
     AustracCommunication,
@@ -332,6 +333,9 @@ def approve(
     risk_state = db.scalar(select(FirmRiskState).where(FirmRiskState.firm_id == current_user.firm_id))
     if risk_state is not None:
         risk_state.overall_risk_rating = assessment.overall_risk_rating
+
+    # Approving the assessment satisfies any pending risk-assessment review deadline.
+    complete_deadlines(db, current_user.firm_id, "risk_assessment_review", current_user.id)
 
     db.add(
         GovernanceApproval(
