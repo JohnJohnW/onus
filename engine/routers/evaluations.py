@@ -200,6 +200,21 @@ def submit_report(
 ) -> EvaluationOut:
     e = _get_eval(db, current_user.firm_id, eval_id)
     if e.report is not None:
+        # The prior report and findings are replaced, not versioned. Record the
+        # supersession in the immutable audit trail first so the change is traceable.
+        db.add(
+            AuditLog(
+                firm_id=current_user.firm_id,
+                user_id=current_user.id,
+                action="evaluation.report_superseded",
+                entity_type="independent_evaluation",
+                entity_id=e.id,
+                after_state={
+                    "superseded_report_id": str(e.report.id),
+                    "prior_findings": len(list(e.findings)),
+                },
+            )
+        )
         db.delete(e.report)
     for f in list(e.findings):
         db.delete(f)
