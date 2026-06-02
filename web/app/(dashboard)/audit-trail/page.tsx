@@ -40,10 +40,22 @@ export default async function AuditTrailPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight">Audit Trail</h1>
-      <p className="mt-2 text-sm text-neutral-400">
-        A complete, timestamped record of every action taken in your account.
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Audit Trail</h1>
+          <p className="mt-2 text-sm text-neutral-400">
+            A complete, timestamped record of every action taken in your account.
+          </p>
+        </div>
+        {entries.length > 0 && (
+          <a
+            href="/api/audit-log/export"
+            className="shrink-0 rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-200 transition hover:border-neutral-600"
+          >
+            Export CSV
+          </a>
+        )}
+      </div>
 
       <div className="mt-8">
         {entries.length === 0 ? (

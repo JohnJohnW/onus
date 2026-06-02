@@ -427,10 +427,19 @@ def set_countries(
     """Set the country list with override flags; rating is computed (Step 2 pp.19-21)."""
     firm_id = current_user.firm_id
     assessment = _get_or_create(db, firm_id)
+    # Validate and de-duplicate (last value wins per country) before mutating.
+    seen: dict = {}
+    for c in body.countries:
+        if c.basel_score is not None and not 0.0 <= c.basel_score <= 10.0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Basel score must be between 0 and 10.",
+            )
+        seen[c.country.strip().lower()] = c
     for row in list(assessment.countries):
         db.delete(row)
     db.flush()
-    for c in body.countries:
+    for c in seen.values():
         row = RiskAssessmentCountry(
             risk_assessment_id=assessment.id,
             firm_id=firm_id,
@@ -539,6 +548,11 @@ def add_communication(
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid date.")
     now = datetime.now(timezone.utc)
+    if comm_date is not None and comm_date > now.date():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Communication date cannot be in the future.",
+        )
     trigger = ReviewTrigger(
         firm_id=current_user.firm_id,
         trigger_type="austrac_communication",
