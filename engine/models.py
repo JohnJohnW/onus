@@ -13,6 +13,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -57,6 +58,8 @@ class User(Base):
 
 class GovernanceRole(Base):
     __tablename__ = "governance_roles"
+    # One row per (firm, role); the user_id is updated in place on reassignment.
+    __table_args__ = (UniqueConstraint("firm_id", "role", name="uq_governance_roles_firm_role"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
@@ -134,7 +137,7 @@ class RiskAssessmentService(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     risk_assessment_id = Column(
-        UUID(as_uuid=True), ForeignKey("risk_assessments.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("risk_assessments.id", ondelete="CASCADE"), nullable=False, index=True
     )
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
     designated_service_type = Column(String, nullable=False)
@@ -153,7 +156,7 @@ class RiskAssessmentCustomerType(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     risk_assessment_id = Column(
-        UUID(as_uuid=True), ForeignKey("risk_assessments.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("risk_assessments.id", ondelete="CASCADE"), nullable=False, index=True
     )
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
     customer_type = Column(String, nullable=False)
@@ -172,7 +175,7 @@ class RiskAssessmentDeliveryChannel(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     risk_assessment_id = Column(
-        UUID(as_uuid=True), ForeignKey("risk_assessments.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("risk_assessments.id", ondelete="CASCADE"), nullable=False, index=True
     )
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
     channel_type = Column(String, nullable=False)
@@ -191,7 +194,7 @@ class RiskAssessmentCountry(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     risk_assessment_id = Column(
-        UUID(as_uuid=True), ForeignKey("risk_assessments.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("risk_assessments.id", ondelete="CASCADE"), nullable=False, index=True
     )
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
     country = Column(String, nullable=False)
@@ -283,7 +286,7 @@ class Policy(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
-    program_id = Column(UUID(as_uuid=True), ForeignKey("aml_programs.id"), nullable=False, index=True)
+    program_id = Column(UUID(as_uuid=True), ForeignKey("aml_programs.id", ondelete="CASCADE"), nullable=False, index=True)
     area_key = Column(String, nullable=False)  # matches the policy catalogue
     obligation_key = Column(String, nullable=True)  # obligation it satisfies (coverage)
     act_reference = Column(String, nullable=True)
@@ -579,7 +582,7 @@ class Evaluator(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
     evaluation_id = Column(
-        UUID(as_uuid=True), ForeignKey("independent_evaluations.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("independent_evaluations.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name = Column(String, nullable=False)
     kind = Column(String, nullable=False, server_default="external")  # internal | external
@@ -600,7 +603,7 @@ class EvaluationReport(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     evaluation_id = Column(
-        UUID(as_uuid=True), ForeignKey("independent_evaluations.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("independent_evaluations.id", ondelete="CASCADE"), nullable=False, index=True
     )
     summary_of_process = Column(Text, nullable=True)
     aspects_reviewed = Column(Text, nullable=True)
@@ -625,7 +628,7 @@ class EvaluationFinding(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
     evaluation_id = Column(
-        UUID(as_uuid=True), ForeignKey("independent_evaluations.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("independent_evaluations.id", ondelete="CASCADE"), nullable=False, index=True
     )
     area = Column(String, nullable=False)  # risk_assessment | policy | compliance
     is_adverse = Column(Boolean, nullable=False, server_default=text("false"))

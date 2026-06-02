@@ -267,6 +267,28 @@ def test_cannot_demote_self(client):
     assert client.patch(f"/firms/users/{uid}", json={"role": "member"}, headers=headers).status_code == 400
 
 
+def test_governance_role_unique_constraint(client):
+    """The DB rejects a second row for the same (firm, role) - no duplicate officers."""
+    from sqlalchemy.exc import IntegrityError
+
+    from database import SessionLocal, set_session_firm
+    from models import GovernanceRole
+
+    _, token = _signup(client, "Unique Role Firm")
+    fid = _firm_id(token)
+    db = SessionLocal()
+    try:
+        set_session_firm(db, fid)
+        db.add(GovernanceRole(firm_id=fid, role="senior_manager"))
+        db.commit()
+        db.add(GovernanceRole(firm_id=fid, role="senior_manager"))
+        with pytest.raises(IntegrityError):
+            db.commit()
+        db.rollback()
+    finally:
+        db.close()
+
+
 def test_rls_fails_closed_without_firm_context():
     """At the database, with no app.current_firm_id set, RLS returns zero firm-scoped
     rows even though the app connects as the table owner (FORCE ROW LEVEL SECURITY).
