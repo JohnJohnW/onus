@@ -126,6 +126,110 @@ wizard** that builds the firm's first risk assessment, and **document/evidence s
 
 ---
 
+## Design decisions and trade-offs
+
+A few deliberate choices, and the reasoning behind them:
+
+- **Real Postgres RLS over app-layer filtering.** Tenant isolation is enforced in the
+  database (`FORCE` row-level security, least-privilege `onus_app` role), not by trusting
+  every query to remember a firm filter. Trade-off: more migration and role complexity,
+  and the app cannot connect as a superuser. Payoff: a forgotten `WHERE` clause cannot
+  leak another firm's data. Non-negotiable for regulated client data.
+- **Server-only JWT via Next.js proxies.** The engine token lives in an encrypted,
+  httpOnly cookie and is used only server-side; the browser never holds it. Trade-off:
+  every authenticated call hops through a web proxy route. Payoff: XSS cannot exfiltrate
+  a token that JavaScript never sees.
+- **Human-in-the-loop by design.** Onus drafts and flags; a person approves and lodges.
+  Trade-off: more clicks. Payoff: the regulated sign-offs (s26P program approval, SMR
+  lodgement) stay with an accountable human, as the Act requires.
+- **Provider-agnostic AI.** Drafting and classification go through one interface
+  (Anthropic / OpenAI / Azure OpenAI, or a deterministic mock for tests) chosen by the
+  `AI_PROVIDER` env var. Trade-off: a lowest-common-denominator interface. Payoff: you can
+  move LLM processing onshore (e.g. Azure OpenAI in an Australian region) or swap providers
+  without touching feature code, and tests run offline against the mock. The mock is for
+  tests only - never set `AI_PROVIDER=mock` in production.
+- **Deterministic regulatory logic, pinned by tests.** The risk matrix, country overrides,
+  CDD tiers, reporting/evaluation deadlines and catalogues are plain code with unit tests,
+  not AI. Trade-off: rules must be maintained as the law changes. Payoff: the numbers and
+  dates are reproducible and auditable, not a model's guess.
+- **Filesystem-backed document storage.** Evidence files are namespaced per firm under a
+  mounted volume, with generated keys, a 20 MB cap and a type allowlist. Trade-off: not S3
+  out of the box. Payoff: simple, auditable, and trivially kept on Australian
+  infrastructure; swapping to object storage is a single module.
+
+---
+
+## Data residency and deployment
+
+Onus handles highly sensitive, regulated data: identity-verification documents,
+beneficial-ownership details, sanctions/PEP screening results, suspicious matter reports
+and 7-year records. **Where that data lives is a compliance decision, not just an ops one.**
+
+What applies:
+
+- **Privacy Act 1988 (Australian Privacy Principles).** APP 8 (cross-border disclosure)
+  requires reasonable steps to ensure an overseas recipient handles personal information
+  consistently with the APPs - in practice a data-processing agreement plus a documented
+  assessment. APP 11 requires security proportionate to sensitivity (encryption in transit
+  and at rest, access control, audit logging, breach response).
+- **AUSTRAC AML/CTF record-keeping.** Records must be kept for 7 years, secure and available
+  on demand. The Act does not mandate Australian-only storage, but AUSTRAC and your
+  professional body may ask why regulated records are held offshore.
+- **Legal professional privilege and confidentiality (Solicitors Conduct Rules r9).**
+  Program documents and SMRs can contain legal advice; offshore (especially US) storage
+  raises subpoena and privilege-loss risk and should be avoided or contractually controlled.
+
+**Recommended deployment:** host the whole stack (Next.js, FastAPI engine, Postgres, and the
+document volume) on Australian infrastructure - for example an Australian cloud region
+(`ap-southeast-2`, Sydney) - so data stays onshore and you can claim Australian residency
+without caveats. Local Docker Compose already keeps all data on the host machine.
+
+**A note on Vercel:** the Next.js front end is Vercel-ready, but Vercel Functions default to a
+US region, there is no first-class Australian Functions region outside Enterprise, and
+Vercel's managed Postgres has been discontinued (it now points to Neon). Deploying to Vercel
+as-is would put compute, and potentially data, in the US. If you must use Vercel, treat it as
+a cross-border arrangement: pin to an Australian region where available, use an
+Australian-region database, put data-processing agreements in place with every provider,
+complete an APP 8 assessment, and get the firm's governance to sign off. For most small firms,
+Australian-hosted infrastructure is the simpler and more defensible path.
+
+**Production hardening checklist** (responsibilities beyond what the app itself enforces):
+
+- Inject `JWT_SECRET` and `NEXTAUTH_SECRET` from a secrets manager, not the dev `.env.local`;
+  rotate periodically. Give the `onus_app` role a managed password.
+- Terminate TLS and put a rate limiter / WAF in front of the API (the app does not yet
+  rate-limit authentication).
+- Enable at-rest encryption on the database and the document volume (provider disk
+  encryption is sufficient).
+- Keep the database and document volume in an Australian region, and confirm backups stay
+  onshore.
+- Maintain an APP-aligned breach-response plan and review the audit log periodically.
+
+---
+
+## Known limitations
+
+Stated plainly, so a firm knows what Onus does and does not do:
+
+- **Deadlines exclude weekends but not public holidays.** Business-day windows (e.g. a 3- or
+  5-business-day SMR deadline) do not model state/territory public holidays; treat a computed
+  date as the latest safe date and check the calendar near a holiday.
+- **Adverse-media screening is manual.** There is no authoritative adverse-media list, so
+  Onus does not fabricate one: sanctions and PEP screening are automated, adverse media is a
+  documented manual check. A commercial provider is an optional upgrade, not a legal gap.
+- **AI output is a draft.** Policy and SMR text is a starting point for human review; Onus
+  forces plain ASCII and grounds prompts in the Act, but a person must read and approve every
+  draft.
+- **Rate limiting, security headers and at-rest encryption are deployment responsibilities**
+  (see the hardening checklist), not built into the application.
+- **IVTS / international value-transfer reporting is gated as non-routine** - it applies only
+  if the firm carries on a remittance / value-transfer business, which is not typical for a
+  law firm.
+- **One firm per user.** A user belongs to exactly one firm; multi-firm membership is not
+  modelled.
+
+---
+
 ## Tech stack
 
 | Service | Stack |
