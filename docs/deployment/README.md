@@ -59,7 +59,9 @@ client ------> reverse proxy ---> web (Next.js :3000) ---> engine (FastAPI :8000
    engine refuse to start if `JWT_SECRET` is missing or weak.
 
 3. **Put the reverse proxy in front of `web:3000`** and terminate TLS there. Do not expose
-   `web` or `db` to the internet directly. The `db` service publishes no host port.
+   `web` or `db` to the internet directly. The `db` service publishes no host port. An
+   example nginx config (TLS, HSTS, and per-IP rate limiting on the auth endpoints) is at
+   [`infrastructure/nginx/onus.conf.example`](../../infrastructure/nginx/onus.conf.example).
 
 4. **Verify:** browse to your URL, sign up the first firm (becomes the admin), and confirm
    the dashboard loads.
