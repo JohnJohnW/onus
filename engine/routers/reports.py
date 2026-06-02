@@ -174,6 +174,11 @@ def update_report(
     if body.payload is not None:
         r.payload = body.payload
         r.content_hash = _hash(body.payload)
+    if body.grounds is not None:
+        payload = dict(r.payload or {})
+        payload["grounds_for_suspicion"] = body.grounds
+        r.payload = payload
+        r.content_hash = _hash(payload)
     if body.reference_number is not None:
         r.reference_number = body.reference_number
     if body.lpp_claimed is not None:

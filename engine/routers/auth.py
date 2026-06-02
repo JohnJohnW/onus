@@ -63,6 +63,11 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
         )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been deactivated.",
+        )
     return AuthResponse(access_token=_token_for(user), user=UserOut.model_validate(user))
 
 

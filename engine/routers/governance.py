@@ -96,6 +96,16 @@ def set_roles(
         "compliance_officer": body.compliance_officer_user_id or current_user.id,
         "senior_manager": body.senior_manager_user_id or current_user.id,
     }
+    # A supplied user_id must belong to the caller's firm (prevents a cross-tenant write).
+    for user_id in assignments.values():
+        if user_id == current_user.id:
+            continue
+        u = db.get(User, user_id)
+        if u is None or u.firm_id != firm_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="That user is not part of your firm.",
+            )
     for role, user_id in assignments.items():
         gr = db.scalar(
             select(GovernanceRole).where(

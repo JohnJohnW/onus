@@ -10,14 +10,19 @@
 
 | Report | Trigger | Deadline | Authority |
 |---|---|---|---|
-| **Enrolment** | Becoming a reporting entity | Enrol from **31 Mar 2026**; obligations commence **1 Jul 2026** | Act s51B (built: deadline) |
+| **Enrolment** | Commencing a designated service | Enrol from **31 Mar 2026**; **within 28 days** of first providing a designated service (firms operating on day one: by **29 Jul 2026**); obligations commence **1 Jul 2026** | Act **s51B(1)** |
 | **SMR** (terrorism financing) | Reasonable grounds to suspect, s41(1)(g)/(h) | **24 hours** after forming the suspicion | Act s41(2)(b) |
 | **SMR** (all other) | Reasonable grounds to suspect, s41(1)(d)-(j) | **3 business days** after the day suspicion formed | Act s41(2)(a) |
-| **SMR** (LPP claimed, non-TF) | as above, part privileged | **5 business days** - *feature-flag* | AUSTRAC p.8; Rules 9-2(1)(d) -> Act s41(2)(aa) (not in Comp 60 body) |
+| **SMR** (partial LPP, non-TF) | as above, but the firm reasonably believes *some but not all* of the information is privileged and the privilege belongs to another person | **5 business days** after the day suspicion formed | **Act s41(2)(aa)** (inserted by Amendment Act 2024 Sch 4, commences 1 Jul 2026); Rules 9-2(1)(d) |
 | **TTR** | Designated service involves a threshold transaction (**physical currency >= $10,000**) | **10 business days** after the transaction | Act ss5, 43(2) |
-| **IFTI / IVTS** | International transfer of value (to/from Australia), s45 | **10 business days** after passing on/receiving the transfer message | Act s46(2); s46A(2) for self-hosted wallets |
+| **IVTS** (formerly IFTI) | International transfer of value, s45 - **only if the firm carries on a remittance/value-transfer business; not a routine law-firm obligation** | **10 business days** after passing on/receiving the transfer message | Act s46(2); s46A(2) for self-hosted wallets |
 | **Annual compliance report** | Annual | Period **1 Jul - 30 Jun**; due within **3 months** -> **30 Sep** (first: due 30 Sep 2027) | Act s47; Rules s9-9 |
-| **Cross-border BNI** | Moving bearer negotiable instruments across the border | per Act s53 | Rules 9-12/9-13 (refer-out, lower priority) |
+| **Cross-border movement** | ***Any person*** physically moving **>= $10,000** in currency or bearer negotiable instruments across the border (not tied to providing a designated service) | per **Act s53** | reporting details in AML/CTF Rules Pt 9 (refer-out, lower priority) |
+
+> **Wholly privileged SMR (Act s41(2A)):** where the firm reasonably believes that *all*
+> the relevant information is privileged (privilege belonging to another person), it may
+> **refuse to lodge** rather than report. The 5-business-day rule above is only for *partial*
+> privilege. Terrorism-financing grounds (s41(1)(g)/(h)) stay at 24 hours regardless.
 
 > "Business days" exclude weekends/public holidays; the count starts the **day after**
 > the suspicion is formed (AUSTRAC p.8). Store a computed `due_at` + a `deadline_basis`.

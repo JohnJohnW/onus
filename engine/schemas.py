@@ -510,6 +510,7 @@ class ReportCreate(BaseModel):
 
 class ReportUpdate(BaseModel):
     payload: Optional[dict] = None
+    grounds: Optional[str] = None  # SMR grounds-for-suspicion (merged into payload)
     status: Optional[str] = None  # draft | ready | lodged | not_required
     reference_number: Optional[str] = None
     lpp_claimed: Optional[bool] = None

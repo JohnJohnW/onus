@@ -13,7 +13,9 @@ compliance officer cannot evaluate their own work.
 - "Your AML/CTF policies **must ensure that independent evaluations are
   conducted**" (Step 5 p.1; Act s 26F(4)(f), Rules s 5-10).
 - "must set out the **frequency** ... appropriate to the nature, size and complexity";
-  "**at a minimum ... at least once every 3 years**" (p.4; Act s 116).
+  "**at a minimum ... at least once every 3 years**" (Act **s 26F(4)(f)(ii)** - the
+  3-year floor for independent evaluation is set by the Act itself; Rule 5-10 prescribes
+  the content of an evaluation but no interval. Note s116 is record-retention, not cadence).
 - **First-evaluation deadline (newly regulated entities, incl. law firms) -   Transitional Rules s17:** staggered by the **last two digits of the firm's AUSTRAC
   enrolment identifier (AAN)**: both odd -> **30 Jun 2029**; second-last odd / last
   even -> **31 Dec 2029**; both even -> **30 Jun 2030**; second-last even / last odd ->
