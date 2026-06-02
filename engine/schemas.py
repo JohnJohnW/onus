@@ -693,3 +693,17 @@ class MatterClassifyOut(BaseModel):
     customer: Optional[str] = None
     cdd_tier: Optional[str] = None
     rationale: str = ""
+
+
+# ----- Documents / evidence -----
+
+
+class DocumentOut(BaseModel):
+    id: uuid.UUID
+    entity_type: str
+    entity_id: Optional[uuid.UUID] = None
+    filename: str
+    content_type: Optional[str] = None
+    size_bytes: int
+    uploaded_by_user_id: Optional[uuid.UUID] = None
+    created_at: datetime
