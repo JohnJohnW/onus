@@ -29,7 +29,9 @@ export default async function ComplianceProgramPage() {
       <div className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Compliance Program</h1>
         <p className="mt-2 text-sm text-neutral-400">
-          Your AML/CTF program is being prepared. Check back shortly.
+          We could not load your compliance program right now. Refresh the page to try again, or{" "}
+          <a href="/onboarding" className="text-neutral-200 underline">complete onboarding</a>{" "}
+          if you have not set up your firm yet.
         </p>
       </div>
     );
