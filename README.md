@@ -208,6 +208,9 @@ Australian-hosted infrastructure is the simpler and more defensible path.
   onshore.
 - Maintain an APP-aligned breach-response plan and review the audit log periodically.
 
+Step-by-step instructions, a production Compose stack (`docker-compose.prod.yml`), and an
+APP 8 cross-border checklist are in [`docs/deployment`](docs/deployment/README.md).
+
 ---
 
 ## Known limitations
