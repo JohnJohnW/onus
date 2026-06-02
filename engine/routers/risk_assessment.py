@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from auth.dependencies import get_current_user
+from auth.dependencies import get_current_user, require_approver
 from database import get_db
 from deadlines import complete_deadlines
 from models import (
@@ -315,7 +315,7 @@ def set_delivery_channels(
 
 @router.post("/approve", response_model=RiskAssessmentOut)
 def approve(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_approver),
     db: Session = Depends(get_db),
 ) -> RiskAssessmentOut:
     assessment = _current(db, current_user.firm_id)

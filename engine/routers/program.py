@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from agent_log import record_agent_task
 from ai.drafting import draft_policy
-from auth.dependencies import get_current_user
+from auth.dependencies import get_current_user, require_approver
 from database import get_db
 from models import (
     AmlProgram,
@@ -243,7 +243,7 @@ def submit_for_approval(
 @router.post("/approve", response_model=ProgramOut)
 def approve_program(
     body: ProgramApproveRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_approver),
     db: Session = Depends(get_db),
 ) -> ProgramOut:
     """Senior-manager approval of the program (Act s26P) - records name, role, date."""

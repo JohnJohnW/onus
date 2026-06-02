@@ -30,6 +30,7 @@ class UserOut(BaseModel):
     full_name: Optional[str] = None
     role: str
     firm_id: uuid.UUID
+    is_active: bool = True
 
 
 class FirmOut(BaseModel):
@@ -707,3 +708,27 @@ class DocumentOut(BaseModel):
     size_bytes: int
     uploaded_by_user_id: Optional[uuid.UUID] = None
     created_at: datetime
+
+
+# ----- User / team management -----
+
+
+class UserCreate(BaseModel):
+    full_name: str = Field(min_length=1)
+    email: str = Field(min_length=3)
+    role: str = "member"  # admin | member
+
+
+class UserRoleUpdate(BaseModel):
+    role: Optional[str] = None  # admin | member
+    is_active: Optional[bool] = None
+
+
+class UserCreatedOut(BaseModel):
+    user: UserOut
+    temporary_password: str  # shown once; the colleague changes it after first login
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=12, description="Minimum 12 characters.")
