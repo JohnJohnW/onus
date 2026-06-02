@@ -539,3 +539,51 @@ def test_onboarding_complete_is_idempotent(client):
     assert client.post("/onboarding/complete", headers=h).status_code == 200
     second = len(client.get("/dashboard/summary", headers=h).json()["upcoming_deadlines"])
     assert second == first, f"deadlines duplicated: {first} -> {second}"
+
+
+def test_countries_rejects_out_of_range_basel(client):
+    _, token = _signup(client, "Basel Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    res = client.put(
+        "/risk-assessment/countries",
+        json={"countries": [{"country": "Testland", "basel_score": 15}]},
+        headers=h,
+    )
+    assert res.status_code == 400, res.text
+
+
+def test_countries_deduplicates_by_name(client):
+    _, token = _signup(client, "Dedup Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    client.put(
+        "/risk-assessment/countries",
+        json={
+            "countries": [
+                {"country": "Australia", "basel_score": 2},
+                {"country": "Australia", "basel_score": 8},
+            ]
+        },
+        headers=h,
+    )
+    cur = client.get("/risk-assessment/current", headers=h).json()
+    assert len(cur["countries"]) == 1, cur["countries"]
+
+
+def test_communication_rejects_future_date(client):
+    _, token = _signup(client, "Future Comm Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    res = client.post(
+        "/risk-assessment/communications",
+        json={"source_label": "AUSTRAC update", "communicated_on": "2099-01-01"},
+        headers=h,
+    )
+    assert res.status_code == 400, res.text
+
+
+def test_audit_log_export_is_csv(client):
+    _, token = _signup(client, "Export Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    res = client.get("/audit-log/export", headers=h)
+    assert res.status_code == 200, res.text
+    assert "text/csv" in res.headers.get("content-type", "")
+    assert res.text.splitlines()[0] == "timestamp_utc,action,entity_type,entity_id,actor"
