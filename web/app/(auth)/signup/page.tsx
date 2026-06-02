@@ -21,6 +21,18 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
+    if (!firmName.trim()) {
+      setError("Enter your firm name.");
+      return;
+    }
+    if (!fullName.trim()) {
+      setError("Enter your full name.");
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+      setError("Enter a valid email address.");
+      return;
+    }
     if (password.length < 12) {
       setError("Password must be at least 12 characters.");
       return;
@@ -35,9 +47,9 @@ export default function SignupPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        firm_name: firmName,
-        full_name: fullName,
-        email,
+        firm_name: firmName.trim(),
+        full_name: fullName.trim(),
+        email: email.trim(),
         password,
       }),
     });

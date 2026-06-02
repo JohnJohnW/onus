@@ -36,6 +36,7 @@ export function ClientsList({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const [form, setForm] = useState({
     type: customerTypes[0]?.key ?? "individual",
     display_name: "",
@@ -47,7 +48,11 @@ export function ClientsList({
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.display_name.trim()) return;
+    setErr(null);
+    if (!form.display_name.trim()) {
+      setErr("Enter a client name.");
+      return;
+    }
     setBusy(true);
     const res = await fetch("/api/clients", {
       method: "POST",
@@ -65,6 +70,9 @@ export function ClientsList({
       setForm({ ...form, display_name: "", is_pep: false, sanctions_hit: false });
       setOpen(false);
       router.refresh();
+    } else {
+      const data = await res.json().catch(() => null);
+      setErr((data && data.detail) || "Could not add the client. Please try again.");
     }
   }
 
@@ -81,6 +89,8 @@ export function ClientsList({
           {open ? "Cancel" : "New client"}
         </Button>
       </header>
+
+      {err && <p className="mb-4 text-sm text-red-400">{err}</p>}
 
       {open && (
         <Card className="mb-6 border-neutral-800 bg-neutral-900/50">

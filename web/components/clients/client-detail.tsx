@@ -146,6 +146,7 @@ function MonitoringSection({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const [form, setForm] = useState({
     indicator_key: indicators[0]?.key ?? "",
     severity: "medium",
@@ -164,13 +165,19 @@ function MonitoringSection({
 
   async function post(path: string, body?: unknown) {
     setBusy(true);
+    setErr(null);
     const res = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body ?? {}),
     });
     setBusy(false);
-    if (res.ok) router.refresh();
+    if (res.ok) {
+      router.refresh();
+    } else {
+      const data = await res.json().catch(() => null);
+      setErr((data && data.detail) || "That action could not be completed. Please try again.");
+    }
   }
   async function raise(e: React.FormEvent) {
     e.preventDefault();
@@ -191,6 +198,7 @@ function MonitoringSection({
       </h2>
       <Card className="border-neutral-800 bg-neutral-900/50">
         <CardContent className="p-5">
+          {err && <p className="mb-3 text-sm text-red-400">{err}</p>}
           {alerts.length === 0 ? (
             <p className="mb-4 text-sm text-neutral-500">No alerts raised.</p>
           ) : (
@@ -312,29 +320,42 @@ export function ClientDetailView({
   const [partyScreen, setPartyScreen] = useState<ScreenResult | null>(null);
   const [partyPep, setPartyPep] = useState<ScreenResult | null>(null);
   const [screening, setScreening] = useState<null | "client" | "party">(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const latestCdd = client.cdd_checks[0];
 
   async function post(path: string, body: unknown) {
     setBusy(true);
+    setActionError(null);
     const res = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     setBusy(false);
-    if (res.ok) router.refresh();
+    if (res.ok) {
+      router.refresh();
+    } else {
+      const data = await res.json().catch(() => null);
+      setActionError((data && data.detail) || "That action could not be completed. Please try again.");
+    }
     return res.ok;
   }
 
   async function patch(path: string, body: unknown) {
     setBusy(true);
+    setActionError(null);
     const res = await fetch(path, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     setBusy(false);
-    if (res.ok) router.refresh();
+    if (res.ok) {
+      router.refresh();
+    } else {
+      const data = await res.json().catch(() => null);
+      setActionError((data && data.detail) || "That action could not be completed. Please try again.");
+    }
     return res.ok;
   }
 
@@ -443,6 +464,11 @@ export function ClientDetailView({
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
+      {actionError && (
+        <p className="mb-4 rounded-md border border-red-900/50 bg-red-950/40 px-3 py-2 text-sm text-red-300">
+          {actionError}
+        </p>
+      )}
       <Link href="/clients" className="text-xs text-neutral-500 hover:text-neutral-300">
         Back to clients
       </Link>
