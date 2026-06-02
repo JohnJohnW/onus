@@ -20,6 +20,8 @@ def normalize_name(value: str | None) -> str:
     and accented source names match their unaccented query forms."""
     if not value:
         return ""
+    if not isinstance(value, str):
+        value = str(value)
     decomposed = unicodedata.normalize("NFKD", value)
     stripped = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
     lowered = stripped.lower()

@@ -1,6 +1,7 @@
 """AML/CTF program - the program container, policy set, and document-&-approve flow."""
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -423,7 +424,7 @@ def add_trigger(
 
 @router.post("/triggers/{trigger_id}/resolve", response_model=ReviewTriggerOut)
 def resolve_trigger(
-    trigger_id: str,
+    trigger_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ReviewTriggerOut:

@@ -449,6 +449,11 @@ class AlertCreate(BaseModel):
     narrative: Optional[str] = None
 
 
+class ScanResultOut(BaseModel):
+    raised: int
+    alerts: List["AlertOut"]
+
+
 class IndicatorOut(BaseModel):
     group: str
     group_label: str
@@ -516,6 +521,29 @@ class ReportUpdate(BaseModel):
     reference_number: Optional[str] = None
     lpp_claimed: Optional[bool] = None
     lpp_form_ref: Optional[str] = None
+
+
+class AnnualSummaryOut(BaseModel):
+    """A data-driven draft to help complete AUSTRAC's annual compliance report. The
+    counts are gathered from the firm's own records for the reporting period; it is a
+    starting point for the principal to review, not the official AUSTRAC form."""
+    period_start: str
+    period_end: str
+    program_approved: bool = False
+    program_approved_at: Optional[datetime] = None
+    risk_rating: Optional[str] = None
+    last_evaluation_at: Optional[datetime] = None
+    smr_lodged: int = 0
+    ttr_lodged: int = 0
+    ivts_lodged: int = 0
+    alerts_raised: int = 0
+    alerts_escalated: int = 0
+    material_changes: int = 0
+    clients_onboarded: int = 0
+    matters_opened: int = 0
+    open_alerts: int = 0
+    pending_deadlines: int = 0
+    unresolved_triggers: int = 0
 
 
 class ReportOut(BaseModel):

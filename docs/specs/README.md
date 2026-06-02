@@ -59,14 +59,18 @@ the old "Part A / Part B" split (Program overview p.3):
 | Identify & assess ML/TF/PF risk (Step 2) | **Risk Profile** | Built | [risk-profile-enhancements.md](risk-profile-enhancements.md) |
 | AML/CTF policies (Step 3, policy half) | Compliance Program -> Policies | Built | [compliance-program.md](compliance-program.md) |
 | Customer due diligence (Step 3, CDD half) | **Clients & Matters** | Built | [clients-and-matters.md](clients-and-matters.md) |
-| Suspicious-activity indicators (Risk insights) | Clients & Matters -> Monitoring | Built (manual alerts; no automated detection) | [clients-and-matters.md](clients-and-matters.md) |
+| Suspicious-activity indicators (Risk insights) | Clients & Matters -> Monitoring | Built (manual indicator alerts + an automated risk-condition scan; escalation to a draft SMR) | [clients-and-matters.md](clients-and-matters.md) |
 | Review & update the program (Step 4) | Compliance Program -> Program lifecycle | Built | [compliance-program.md](compliance-program.md) |
 | Reporting: SMR / TTR / IVTS / annual report / enrolment | **Reporting** | Built | [reporting-and-recordkeeping.md](reporting-and-recordkeeping.md) |
 | Record keeping & retention (Record keeping) | Reporting -> Records (cross-cutting) | Built (records on lodgement; register thin) | [reporting-and-recordkeeping.md](reporting-and-recordkeeping.md) |
 | Independent evaluation (Step 5) | **Evaluation** | Built | [independent-evaluation.md](independent-evaluation.md) |
 
-Already shipped and **not** re-specced here: Dashboard (agent feed), Audit Trail,
-Settings, Auth, the onboarding wizard.
+Built since the original specs (not separately specced here): **Sanctions & PEP
+screening** (DFAT + PEP lists on a versioned matching pipeline, wired into the CDD
+gate - Rules s5-3/s5-5), **document/evidence upload + storage**, **AI matter
+classification**, **user/team management with role-gated approvals**, and the
+dashboard reminders + automated monitoring scan. Already shipped: Dashboard (agent
+feed), Audit Trail, Settings, Auth, the onboarding wizard.
 
 ---
 
@@ -81,8 +85,11 @@ These specs assume the existing stack and patterns (see
 - **Web (Next.js App Router)** renders server components that call the engine
   through **server-side proxies** (`web/app/api/**`) so the JWT never reaches the
   client - the established pattern (`/api/firm`, `/api/onboarding`, etc.).
-- **Multi-tenant isolation** via the existing row-level-security GUC
-  (`app.current_firm_id`); every new table is firm-scoped with a `firm_id`.
+- **Multi-tenant isolation** via *enforced* Postgres row-level security: every
+  firm-scoped table has an `ENABLE`d + `FORCE`d policy keyed on the
+  `app.current_firm_id` GUC, and the app connects as a non-superuser role
+  (`onus_app`) so the policies apply. Every new firm-scoped table must add a
+  `firm_id` and its policy.
 - **Dark theme + shadcn/ui** components, matching the built pages.
 - **Every spec lists**: AUSTRAC basis -> user stories -> data model -> API -> UI ->
   Onus (AI) role -> compliance gates -> acceptance criteria -> refer-outs.
@@ -169,7 +176,7 @@ Driven by dependency and by the **1 July 2026** commencement:
    monitoring; the highest-volume day-to-day workflow. Largest refer-out surface
    (KYC field schema), so sequence after the Act/Rules detail is sourced.
 4. **Reporting & Record keeping** ([spec](reporting-and-recordkeeping.md)) - SMR /
-   TTR / IFTI / annual report; depends on Clients & Matters for the data.
+   TTR / IVTS / annual report; depends on Clients & Matters for the data.
 5. **Independent Evaluation** ([spec](independent-evaluation.md)) - periodic;
    lowest day-to-day frequency; depends on a documented program to evaluate.
 
@@ -191,7 +198,7 @@ Every section spec now carries the citation inline.
 | R4 | PEP definitions + required steps | Resolved | **Rules s1-5** (domestic offices), ss6-23/6-24; Act s32(c) |
 | R5 | Beneficial-ownership threshold + control test | Resolved - **25% ownership OR control** | AUSTRAC Initial-CDD p.9; Rules ss6-7/6-8/6-18 |
 | R6 | Record retention period + categories | Resolved - **7 years**, but from **four different start events** | Act ss107/108/111/114/116 (see reporting spec section 5) |
-| R7 | SMR deadlines + field schema | Resolved - **24 hrs (TF) / 3 business days (other)**; 5 bd LPP flag | Act s41(2); Rules ss9-2/9-3/9-4 |
+| R7 | SMR deadlines + field schema | Resolved - **24 hrs (TF) / 3 business days (other) / 5 business days (partial LPP)** | Act s41(2)(a)/(b); **s41(2)(aa)** (LPP, inserted by Amendment Act 2024 Sch 4, commences 1 Jul 2026); Rules ss9-2/9-3/9-4 |
 | R8 | TTR / IFTI mechanics | Resolved - TTR **$10k**, due **10 business days**; IFTI 10 bd | Act ss43, 45/46/46A; Rules ss9-6...9-8, Part 8 |
 | R9 | Tipping-off + LPP | Resolved - offence **s123** (2 yrs/120 units); **good-faith dissuasion exception s123(4) is available to lawyers**; LPP preserved s242 | Act ss123, 242; Rules s5-13 |
 | R10 | First independent-evaluation deadlines | Resolved - **staggered by last 2 digits of the AUSTRAC enrolment ID**: 30 Jun 2029 / 31 Dec 2029 / 30 Jun 2030 / 31 Dec 2030 | Transitional Rules **s17** (s16 for previously-regulated) |
@@ -199,9 +206,15 @@ Every section spec now carries the citation inline.
 | R12 | Annual compliance report content + due date | Resolved - period **1 Jul-30 Jun**, due **30 Sep** | Act s47; Rules s9-9 |
 
 **Residual items (do not block the build; track separately):**
-- **5-business-day LPP SMR timeframe** - AUSTRAC states it (SMR p.8) and Rules s9-2(1)(d) references **Act s41(2)(aa)**, but that paragraph is *not* in the body of Comp 60. Ship behind a **feature flag**; confirm against the in-force s41.
+- **5-business-day LPP SMR timeframe** - *Resolved.* s41(2)(aa) is real: it is inserted
+  by the AML/CTF Amendment Act 2024, Schedule 4, which commences **1 July 2026** (which
+  is why it was absent from the 31 Mar 2026 compilation body). It is the law for Tranche-2
+  firms from day one; the feature flag has been removed and it is cited cleanly.
 - **s116 "no longer relevant" retention start** is judgement-based (not a fixed `created_at + 7y`) - the retention engine needs a per-record "superseded/closed" date input.
-- **Screening data provider** (sanctions / PEP / adverse-media; e.g. OpenSanctions) - integration + licensing decision, not a legal gap.
+- **Screening data:** *sanctions and PEP are built* - the DFAT Consolidated List and a
+  PEP list are ingested on a versioned matching pipeline (auto-fetch / manual upload).
+  **Adverse-media** has no authoritative list, so it remains a documented manual check
+  rather than a faked source; a commercial provider is an optional upgrade, not a legal gap.
 - **Law Council "National Legal Profession AML/CTF Guidance" (Dec 2025)** - optional; refines the LPP/tipping-off UX. Act s123(4)/s242 already give the rule.
 - **AUSTRAC approved forms** (SMR/TTR/IFTI/enrolment) - exact field layouts finalise when AUSTRAC publishes the forms; our payload schemas follow the Rules.
 
@@ -223,7 +236,8 @@ Every section spec now carries the citation inline.
 
 **Transitional Rules - AML/CTF Transitional Rules 2026** (F2026L00393): **ss7-8** ACIP relief (ends 31 Mar 2029); **ss16-17** first-evaluation deadlines; **s19** CO-notification (later of enrol+14 days or 29 Jul 2026).
 
-*Confirm s41(2)(aa) (LPP 5-day) against the in-force Act before relying on it.*
+*s41(2)(aa) (the partial-LPP 5-business-day SMR timeframe) is confirmed: inserted by the
+AML/CTF Amendment Act 2024 Schedule 4, commencing 1 July 2026.*
 
 ---
 

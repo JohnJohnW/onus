@@ -94,7 +94,9 @@ export function SanctionsPanel() {
     if (!query.trim()) return;
     setScreening(true);
     setErr(null);
+    setResults(null);
     const out: Result[] = [];
+    let failed = false;
     for (const { key } of LISTS) {
       if (!statuses[key]?.loaded) continue;
       const res = await fetch("/api/sanctions/screen", {
@@ -103,9 +105,11 @@ export function SanctionsPanel() {
         body: JSON.stringify({ name: query.trim(), list_type: key }),
       });
       if (res.ok) out.push(await res.json());
+      else failed = true;
     }
     setScreening(false);
     setResults(out);
+    if (failed) setErr("One or more lists could not be screened. Please try again.");
   }
 
   const anyLoaded = LISTS.some((l) => statuses[l.key]?.loaded);

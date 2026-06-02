@@ -31,6 +31,24 @@ export type RetentionRecord = {
   created_at: string;
 };
 
+type AnnualSummary = {
+  period_start: string;
+  period_end: string;
+  program_approved: boolean;
+  risk_rating: string | null;
+  smr_lodged: number;
+  ttr_lodged: number;
+  ivts_lodged: number;
+  alerts_raised: number;
+  alerts_escalated: number;
+  material_changes: number;
+  clients_onboarded: number;
+  matters_opened: number;
+  open_alerts: number;
+  pending_deadlines: number;
+  unresolved_triggers: number;
+};
+
 const TYPE_LABELS: Record<string, string> = {
   smr: "Suspicious matter report",
   ttr: "Threshold transaction report",
@@ -227,6 +245,9 @@ export function ReportingView({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
+  const [annual, setAnnual] = useState<AnnualSummary | null>(null);
+  const [annualBusy, setAnnualBusy] = useState(false);
+  const [annualErr, setAnnualErr] = useState<string | null>(null);
   const [form, setForm] = useState({
     type: "smr",
     tf: false,
@@ -262,6 +283,20 @@ export function ReportingView({
     } else {
       const d = await res.json().catch(() => null);
       setFormErr((d && typeof d.detail === "string" && d.detail) || "Could not create the report.");
+    }
+  }
+
+  async function previewAnnual() {
+    setAnnualBusy(true);
+    setAnnualErr(null);
+    const qs = form.reporting_period_end ? `?period_end=${form.reporting_period_end}` : "";
+    const res = await fetch(`/api/reports/annual-summary${qs}`, { cache: "no-store" });
+    setAnnualBusy(false);
+    if (res.ok) {
+      setAnnual(await res.json());
+    } else {
+      const d = await res.json().catch(() => null);
+      setAnnualErr((d && typeof d.detail === "string" && d.detail) || "Could not load the summary.");
     }
   }
 
@@ -341,12 +376,40 @@ export function ReportingView({
               />
             )}
             {form.type === "annual_compliance" && (
-              <input
-                value={form.reporting_period_end}
-                onChange={(e) => setForm({ ...form, reporting_period_end: e.target.value })}
-                placeholder="Reporting period end (YYYY-MM-DD, e.g. 2027-06-30)"
-                className={`${field} w-full`}
-              />
+              <>
+                <input
+                  value={form.reporting_period_end}
+                  onChange={(e) => setForm({ ...form, reporting_period_end: e.target.value })}
+                  placeholder="Reporting period end (YYYY-MM-DD, e.g. 2027-06-30)"
+                  className={`${field} w-full`}
+                />
+                <Button type="button" size="sm" variant="ghost" disabled={annualBusy} onClick={previewAnnual}>
+                  {annualBusy ? "Loading..." : "Preview annual summary"}
+                </Button>
+                {annualErr && <p className="text-xs text-red-400">{annualErr}</p>}
+                {annual && (
+                  <div className="space-y-1 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-xs text-neutral-300">
+                    <p className="text-neutral-400">
+                      Reporting year {annual.period_start} to {annual.period_end}. A draft from your own
+                      records to help complete AUSTRAC&apos;s form - review before lodging.
+                    </p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 sm:grid-cols-3">
+                      <span>Program approved: {annual.program_approved ? "yes" : "no"}</span>
+                      <span>Risk rating: {annual.risk_rating ?? "n/a"}</span>
+                      <span>SMRs lodged: {annual.smr_lodged}</span>
+                      <span>TTRs lodged: {annual.ttr_lodged}</span>
+                      <span>Alerts raised: {annual.alerts_raised}</span>
+                      <span>Escalated to SMR: {annual.alerts_escalated}</span>
+                      <span>Material changes: {annual.material_changes}</span>
+                      <span>Clients onboarded: {annual.clients_onboarded}</span>
+                      <span>Matters opened: {annual.matters_opened}</span>
+                      <span>Open alerts: {annual.open_alerts}</span>
+                      <span>Pending deadlines: {annual.pending_deadlines}</span>
+                      <span>Open triggers: {annual.unresolved_triggers}</span>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
             <Button type="submit" size="sm" disabled={busy}>
               {busy ? "Drafting..." : "Draft report"}

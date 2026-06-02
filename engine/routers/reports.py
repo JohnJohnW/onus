@@ -6,8 +6,8 @@ import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from agent_log import record_agent_task
@@ -15,8 +15,24 @@ from ai.drafting import draft_smr_narrative
 from auth.dependencies import get_current_user
 from deadlines import complete_deadlines
 from database import get_db
-from models import AuditLog, Client, Matter, Record, Report, ReportDecisionLog, User
+from models import (
+    AmlProgram,
+    AuditLog,
+    Client,
+    ComplianceDeadline,
+    FirmRiskState,
+    IndependentEvaluation,
+    Matter,
+    MonitoringAlert,
+    ProgramChangeLog,
+    Record,
+    Report,
+    ReportDecisionLog,
+    ReviewTrigger,
+    User,
+)
 from schemas import (
+    AnnualSummaryOut,
     DecisionRequest,
     RecordOut,
     ReportCreate,
@@ -88,6 +104,78 @@ def _report_out(r: Report) -> ReportOut:
     )
 
 
+def _annual_summary(db: Session, firm_id, period_end: date) -> AnnualSummaryOut:
+    """Gather the firm's own records for the reporting year (1 Jul - 30 Jun)."""
+    start = datetime(period_end.year - 1, 7, 1, tzinfo=timezone.utc)
+    end = datetime(period_end.year, 6, 30, 23, 59, 59, tzinfo=timezone.utc)
+
+    def n(model, *conds) -> int:
+        return int(
+            db.scalar(select(func.count()).select_from(model).where(model.firm_id == firm_id, *conds)) or 0
+        )
+
+    program = db.scalar(select(AmlProgram).where(AmlProgram.firm_id == firm_id))
+    risk = db.scalar(select(FirmRiskState).where(FirmRiskState.firm_id == firm_id))
+    last_eval = db.scalar(
+        select(IndependentEvaluation)
+        .where(IndependentEvaluation.firm_id == firm_id)
+        .order_by(IndependentEvaluation.created_at.desc())
+    )
+
+    def lodged(report_type):
+        return (Report.type == report_type, Report.status == "lodged",
+                Report.lodged_at >= start, Report.lodged_at <= end)
+
+    return AnnualSummaryOut(
+        period_start=start.date().isoformat(),
+        period_end=end.date().isoformat(),
+        program_approved=bool(program and program.status == "approved"),
+        program_approved_at=program.approved_at if program else None,
+        risk_rating=risk.overall_risk_rating if risk else None,
+        last_evaluation_at=(last_eval.report_received_at or last_eval.created_at) if last_eval else None,
+        smr_lodged=n(Report, *lodged("smr")),
+        ttr_lodged=n(Report, *lodged("ttr")),
+        ivts_lodged=n(Report, *lodged("ifti")),
+        alerts_raised=n(MonitoringAlert, MonitoringAlert.created_at >= start, MonitoringAlert.created_at <= end),
+        alerts_escalated=n(
+            MonitoringAlert, MonitoringAlert.created_at >= start, MonitoringAlert.created_at <= end,
+            MonitoringAlert.status == "escalated_to_smr",
+        ),
+        material_changes=n(
+            ProgramChangeLog, ProgramChangeLog.is_material.is_(True),
+            ProgramChangeLog.changed_at >= start, ProgramChangeLog.changed_at <= end,
+        ),
+        clients_onboarded=n(Client, Client.created_at >= start, Client.created_at <= end),
+        matters_opened=n(Matter, Matter.opened_at >= start, Matter.opened_at <= end),
+        open_alerts=n(MonitoringAlert, MonitoringAlert.status == "open"),
+        pending_deadlines=n(ComplianceDeadline, ComplianceDeadline.status == "pending"),
+        unresolved_triggers=n(ReviewTrigger, ReviewTrigger.status == "pending"),
+    )
+
+
+def _default_period_end() -> date:
+    today = datetime.now(timezone.utc).date()
+    return date(today.year, 6, 30) if today.month <= 6 else date(today.year + 1, 6, 30)
+
+
+@router.get("/annual-summary", response_model=AnnualSummaryOut)
+def annual_summary(
+    period_end: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AnnualSummaryOut:
+    """A data-driven draft for the annual compliance report (Act s47; Rules s9-9).
+    Defaults to the current AUSTRAC reporting year ending 30 June."""
+    if period_end:
+        try:
+            pe = date.fromisoformat(period_end)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="period_end must be YYYY-MM-DD.")
+    else:
+        pe = _default_period_end()
+    return _annual_summary(db, current_user.firm_id, pe)
+
+
 @router.get("", response_model=list[ReportOut])
 def list_reports(
     current_user: User = Depends(get_current_user),
@@ -115,6 +203,12 @@ def create_report(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Below the ${TTR_THRESHOLD:,} threshold transaction reporting threshold.",
             )
+    if body.type == "annual_compliance":
+        try:
+            pe = date.fromisoformat(body.reporting_period_end) if body.reporting_period_end else _default_period_end()
+        except ValueError:
+            pe = _default_period_end()
+        payload = {**payload, "summary": _annual_summary(db, current_user.firm_id, pe).model_dump(mode="json")}
     now = datetime.now(timezone.utc)
     due, basis = _compute_due(
         body.type, tf=body.tf, lpp=body.lpp_claimed, trigger=now, period_end=body.reporting_period_end
@@ -187,6 +281,8 @@ def update_report(
         r.lpp_claimed = body.lpp_claimed
     if body.lpp_form_ref is not None:
         r.lpp_form_ref = body.lpp_form_ref
+    if body.status is not None and body.status not in ("draft", "ready", "lodged", "not_required"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid report status.")
     if body.status in ("draft", "ready", "lodged", "not_required"):
         r.status = body.status
         if body.status == "lodged":

@@ -29,8 +29,10 @@ flowchart LR
 
 Three services, orchestrated locally with Docker Compose. The web tier renders
 server components and calls the engine through **server-side proxies**, so the JWT
-never reaches the browser. Every table is **firm-scoped** behind a row-level-security
-GUC. AI is reached through a **provider-agnostic interface** (swap providers via env).
+never reaches the browser. Every firm-scoped table is isolated by **enforced
+row-level security** (the app connects as a non-superuser role; policies fail closed).
+AI is reached through a **provider-agnostic interface** (swap providers via env). See
+[Security & multi-tenancy](#security--multi-tenancy) below.
 
 ---
 
@@ -90,18 +92,37 @@ flowchart TD
 
 | Section | What it does | AUSTRAC basis |
 |---|---|---|
-| **Dashboard** | The principal's daily agent feed: actions required, activity, deadlines | - |
-| **Risk Profile** | ML/TF/PF risk assessment - 4 categories, likelihoodximpact matrix, country-risk engine, PF screen, AUSTRAC-communications register | Step 2 - Act s26C |
-| **Compliance Program** | The policy set + obligation coverage + document-and-approve (senior-manager sign-off) + review lifecycle | Steps 1, 3, 4 - Act ss26F-26P |
-| **Clients & Matters** | Per-customer-type KYC, beneficial owners, the CDD-tier engine, the before-you-act gate, monitoring + alert->SMR | Step 3 - Act Pt 2; Risk insights |
-| **Sanctions screening** | DFAT Consolidated List: auto-fetch + manual upload, versioned snapshots, name/alias matching surfaced for human adjudication | Rules s5-3 |
-| **Reporting** | SMR / TTR / annual compliance report (with the IVTS and cross-border reports gated as non-routine) - real deadlines, tipping-off guardrails, 4-regime record retention | Act Pt 3, Pt 10 |
-| **Evaluation** | Independent evaluation - staggered deadline, independence gate, findings & remediation | Step 5 - Transitional Rules s17 |
-| **Audit Trail / Settings** | Immutable action log; firm details, users, governance roles | Act s116 |
+| **Dashboard** | Reminders (overdue / due-soon), actions required, the live "Onus activity" feed, completable deadlines, and an on-demand monitoring scan | - |
+| **Risk Profile** | ML/TF/PF risk assessment - 4 categories, likelihood x impact matrix, country-risk engine, PF screen, AUSTRAC-communications register | Step 2 - Act s26C |
+| **Compliance Program** | Policy set + obligation coverage + AI drafting + document-and-approve (role-gated senior-manager sign-off) + review lifecycle with trigger/deadline completion | Steps 1, 3, 4 - Act ss26B-26P |
+| **Clients & Matters** | Per-customer-type KYC, beneficial owners, the CDD-tier engine, the before-you-act gate, AI matter classification, inline sanctions/PEP screening, document/evidence upload | Step 3 - Act Pt 2; Risk insights |
+| **Sanctions & PEP screening** | DFAT Consolidated List and a PEP list on one versioned pipeline (auto-fetch / manual upload), name + alias matching surfaced for human adjudication, wired into the CDD gate | Rules s5-3 (sanctions), s5-5 (PEP) |
+| **Monitoring** | Human-raised indicator alerts plus an automated scan that flags sanctions / PEP / CDD risk conditions across the firm's book, and escalation to a draft SMR | Act s41; Risk insights |
+| **Reporting** | SMR / TTR / annual compliance report (with a data-driven annual draft; IVTS and cross-border gated as non-routine) - real deadlines, tipping-off guardrails, 4-regime record retention | Act Pt 3, Pt 10 |
+| **Evaluation** | Independent evaluation - AAN-staggered deadline, independence gate, findings & remediation | Step 5 - Act s26F(4)(f); Transitional Rules s17 |
+| **Settings & team** | Firm details, user/team management with role-gated approvals, governance roles (s26J eligibility), sanctions/PEP list management, and an immutable audit log | Act s116, s26J |
 
-Cross-cutting: an **AI drafting layer** ("Draft with Onus" for policies and SMR
-narratives, human-in-the-loop) and an **onboarding wizard** that builds the firm's
-first risk assessment.
+Cross-cutting: an **AI layer** (policy + SMR drafting and matter classification,
+human-in-the-loop, plain-ASCII output), the **agent activity feed**, an **onboarding
+wizard** that builds the firm's first risk assessment, and **document/evidence storage**.
+
+---
+
+## Security & multi-tenancy
+
+- **Real row-level security.** Every firm-scoped table has a Postgres RLS policy keyed
+  on a per-request `app.current_firm_id` GUC, both `ENABLE`d and `FORCE`d. The app
+  connects as a least-privilege, non-superuser role (`onus_app`) so the policies
+  actually apply (a superuser/owner bypasses RLS); migrations run as the owner. The
+  policy fails closed: with no firm context, no rows are visible.
+- **Server-only auth.** The engine JWT lives in the encrypted, httpOnly next-auth
+  cookie and is used only server-side through the proxies; it is never returned to the
+  browser (including from `/api/auth/session`).
+- **Role-gated actions.** Approving the program or risk assessment requires an admin or
+  the designated, active senior manager (s26P); managing users and governance roles
+  requires an admin; loading the global sanctions/PEP lists is admin-only.
+- **Human-in-the-loop.** Onus drafts and flags; a person reviews, approves and lodges.
+  It never auto-approves a program or auto-lodges a report.
 
 ---
 
@@ -110,8 +131,8 @@ first risk assessment.
 | Service | Stack |
 |---|---|
 | `web` | Next.js 14 (App Router) - TypeScript - Tailwind - next-auth - shadcn/ui |
-| `engine` | FastAPI - Python 3.11 - SQLAlchemy 2 - Pydantic v2 - Alembic - python-jose - bcrypt |
-| `db` | PostgreSQL 15 + pgvector |
+| `engine` | FastAPI - Python 3.11 - SQLAlchemy 2 - Pydantic v2 - Alembic - python-jose - bcrypt - openpyxl - python-multipart |
+| `db` | PostgreSQL 15 + pgvector (RLS-enforced; non-superuser app role) |
 | AI | Provider-agnostic (`engine/ai/`) - Anthropic / OpenAI / Azure OpenAI, + a mock for tests |
 
 ## Repository layout
@@ -121,10 +142,12 @@ onus/
 |-- web/                  # Next.js operator UI
 |-- engine/               # FastAPI compliance API
 |   |-- models.py         # SQLAlchemy models
-|   |-- routers/          # auth, risk_assessment, program, clients, alerts, reports, evaluations, ...
-|   |-- ai/               # provider-agnostic AI + drafting
-|   |-- alembic/          # versioned migrations
-|   +-- tests/            # pytest (unit; pure functions)
+|   |-- routers/          # auth, risk_assessment, program, clients, alerts, reports, evaluations, sanctions, documents, firms, dashboard, ...
+|   |-- ai/               # provider-agnostic AI: drafting + matter classification
+|   |-- sanctions/        # sanctions/PEP list ingest + name matching
+|   |-- storage.py        # document/evidence file store; deadlines.py, agent_log.py
+|   |-- alembic/          # versioned migrations (incl. RLS + onus_app role)
+|   +-- tests/            # pytest (unit + integration against a real DB)
 |-- docs/
 |   |-- architecture/     # system overview
 |   |-- data-model/       # entities & schema notes

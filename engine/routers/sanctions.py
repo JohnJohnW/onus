@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from agent_log import record_agent_task
-from auth.dependencies import get_current_user
+from auth.dependencies import get_current_user, require_admin
 from database import get_db
 from models import SanctionsEntry, SanctionsListVersion, SanctionsScreening, User
 from sanctions.ingest import import_version, parse_csv, parse_xlsx, rows_to_entries
@@ -85,10 +85,11 @@ def get_status(
 @router.post("/refresh", response_model=SanctionsStatusOut)
 async def refresh(
     list_type: str = Query("sanctions"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> SanctionsStatusOut:
-    """Auto-fetch the latest list from the configured URL (sanctions: DFAT)."""
+    """Auto-fetch the latest list from the configured URL (sanctions: DFAT). Admin only:
+    the list is global, shared by every firm, so ingestion must not be a member action."""
     source, _env, _default, label = _config(list_type)
     url = _list_url(list_type)
     if not url:
@@ -120,10 +121,11 @@ async def refresh(
 async def upload(
     file: UploadFile = File(...),
     list_type: str = Form("sanctions"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> SanctionsStatusOut:
-    """Manual fallback: upload a list file (.xlsx or .csv) for sanctions or PEP."""
+    """Manual fallback: upload a list file (.xlsx or .csv) for sanctions or PEP. Admin
+    only - the list is global reference data shared across firms."""
     source, _env, _default, _label = _config(list_type)
     content = await file.read()
     name = (file.filename or "").lower()
