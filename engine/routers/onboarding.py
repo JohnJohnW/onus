@@ -90,29 +90,32 @@ def complete(
     else:
         risk_state.overall_risk_rating = overall
 
-    db.add_all(
-        [
-            ComplianceDeadline(
-                firm_id=firm_id,
-                deadline_type="risk_assessment_review",
-                entity_type="risk_assessment",
-                entity_id=assessment.id,
-                due_at=now + timedelta(days=3 * 365),
-            ),
-            ComplianceDeadline(
-                firm_id=firm_id,
-                deadline_type="independent_evaluation",
-                due_at=now + timedelta(days=3 * 365),
-            ),
-            ComplianceDeadline(
-                firm_id=firm_id,
-                deadline_type="annual_report",
-                due_at=_next_march_31(now),
-            ),
-        ]
-    )
-
+    # Idempotent: create the standing deadlines only the first time onboarding is
+    # completed, so a repeated /complete call cannot duplicate them.
     firm = db.get(Firm, firm_id)
+    if not firm.onboarding_completed:
+        db.add_all(
+            [
+                ComplianceDeadline(
+                    firm_id=firm_id,
+                    deadline_type="risk_assessment_review",
+                    entity_type="risk_assessment",
+                    entity_id=assessment.id,
+                    due_at=now + timedelta(days=3 * 365),
+                ),
+                ComplianceDeadline(
+                    firm_id=firm_id,
+                    deadline_type="independent_evaluation",
+                    due_at=now + timedelta(days=3 * 365),
+                ),
+                ComplianceDeadline(
+                    firm_id=firm_id,
+                    deadline_type="annual_report",
+                    due_at=_next_march_31(now),
+                ),
+            ]
+        )
+
     firm.onboarding_completed = True
     firm.onboarding_step = 7
 

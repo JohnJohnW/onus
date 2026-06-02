@@ -160,7 +160,11 @@ def update_policy(
         policy.title = body.title
     if body.body is not None:
         policy.body = body.body
-    if body.status in ("draft", "approved"):
+    if body.status is not None:
+        if body.status not in ("draft", "approved"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid policy status."
+            )
         policy.status = body.status
     db.commit()
     db.refresh(policy)
@@ -256,7 +260,9 @@ def approve_program(
     program.documented_at = program.documented_at or now
     program.approved_by_user_id = current_user.id
     program.approved_by_name = actor
-    program.approved_by_role = "senior_manager"
+    # Record the approver's actual role (admin or senior manager), not a fixed label,
+    # so the s26P audit trail is accurate. require_approver permits both.
+    program.approved_by_role = "admin" if current_user.role == "admin" else "senior_manager"
     program.approved_at = now
     program.next_review_due_at = now + timedelta(days=365 * 3)  # at least every 3 years (s26F(3)(d))
     for p in program.policies:

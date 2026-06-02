@@ -1,11 +1,23 @@
 """Pydantic request/response schemas for the Onus API."""
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# A pragmatic email shape check (one @, a dot in the domain, no whitespace). Avoids a
+# new dependency while rejecting obviously invalid addresses like "notanemail".
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _check_email(value: str) -> str:
+    value = value.strip()
+    if not _EMAIL_RE.match(value):
+        raise ValueError("A valid email address is required.")
+    return value
 
 
 # ----- Auth -----
@@ -15,6 +27,11 @@ class SignupRequest(BaseModel):
     full_name: str = Field(min_length=1)
     email: str = Field(min_length=3)
     password: str = Field(min_length=12, description="Minimum 12 characters.")
+
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, v: str) -> str:
+        return _check_email(v)
 
 
 class LoginRequest(BaseModel):
@@ -253,6 +270,7 @@ class AuditLogOut(BaseModel):
     id: uuid.UUID
     action: str
     entity_type: Optional[str] = None
+    entity_id: Optional[uuid.UUID] = None
     actor: Optional[str] = None
     created_at: datetime
 
@@ -552,6 +570,7 @@ class ReportOut(BaseModel):
     status: str
     related_client_id: Optional[uuid.UUID] = None
     related_matter_id: Optional[uuid.UUID] = None
+    related_alert_id: Optional[uuid.UUID] = None
     grounds: Optional[str] = None  # SMR grounds-for-suspicion (from payload)
     deadline_basis: Optional[str] = None
     lpp_claimed: bool
@@ -748,6 +767,11 @@ class UserCreate(BaseModel):
     full_name: str = Field(min_length=1)
     email: str = Field(min_length=3)
     role: str = "member"  # admin | member
+
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, v: str) -> str:
+        return _check_email(v)
 
 
 class UserRoleUpdate(BaseModel):
