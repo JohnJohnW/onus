@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { OnusMark } from "@/components/brand/onus-mark";
 
@@ -13,6 +13,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [expired, setExpired] = useState(false);
+
+  // Read the flag from window (not useSearchParams) to keep this page out of a
+  // Suspense boundary. Set by /session-expired after a stale session is cleared.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("expired")) {
+      setExpired(true);
+    }
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +46,11 @@ export default function LoginPage() {
         </div>
         <h1 className="mb-1 text-lg font-medium">Sign in</h1>
         <p className="mb-6 text-sm text-neutral-400">Welcome back.</p>
+        {expired && (
+          <p className="mb-4 rounded-md border border-amber-900/50 bg-amber-950/40 px-3 py-2 text-sm text-amber-300">
+            Your session expired. Please sign in again to continue.
+          </p>
+        )}
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="mb-1 block text-sm text-neutral-400">Email</label>
