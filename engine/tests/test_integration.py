@@ -587,3 +587,25 @@ def test_audit_log_export_is_csv(client):
     assert res.status_code == 200, res.text
     assert "text/csv" in res.headers.get("content-type", "")
     assert res.text.splitlines()[0] == "timestamp_utc,action,entity_type,entity_id,actor"
+
+
+def test_evaluation_report_resubmit_is_audited(client):
+    """Resubmitting an evaluation report replaces the prior one; the supersession must be
+    recorded in the immutable audit log even though the old report is not versioned."""
+    _, token = _signup(client, "Eval Audit Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    eval_id = client.post("/evaluations", json={"is_first_evaluation": True}, headers=h).json()["id"]
+    assert (
+        client.post(
+            f"/evaluations/{eval_id}/report", json={"summary_of_process": "first"}, headers=h
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            f"/evaluations/{eval_id}/report", json={"summary_of_process": "second"}, headers=h
+        ).status_code
+        == 200
+    )
+    actions = [r["action"] for r in client.get("/audit-log", headers=h).json()]
+    assert "evaluation.report_superseded" in actions, actions
