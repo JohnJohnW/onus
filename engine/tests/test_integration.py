@@ -124,6 +124,44 @@ def test_matter_classification_populates_agent_feed(client, monkeypatch):
     assert any("matter" in a["summary"].lower() for a in activity), activity
 
 
+def test_document_upload_list_download_and_isolation(client):
+    """Upload an evidence file, list and download it, and confirm another firm can
+    neither see nor download it; disallowed file types are rejected."""
+    _, token_a = _signup(client, "Doc Firm A")
+    _, token_b = _signup(client, "Doc Firm B")
+    head_a = {"Authorization": f"Bearer {token_a}"}
+    head_b = {"Authorization": f"Bearer {token_b}"}
+
+    up = client.post(
+        "/documents",
+        files={"file": ("evidence.pdf", b"%PDF-1.4 evidence", "application/pdf")},
+        data={"entity_type": "client"},
+        headers=head_a,
+    )
+    assert up.status_code == 200, up.text
+    doc_id = up.json()["id"]
+
+    a_ids = {d["id"] for d in client.get("/documents", headers=head_a).json()}
+    b_ids = {d["id"] for d in client.get("/documents", headers=head_b).json()}
+    assert doc_id in a_ids
+    assert doc_id not in b_ids  # firm B cannot see firm A's document
+
+    dl = client.get(f"/documents/{doc_id}/download", headers=head_a)
+    assert dl.status_code == 200
+    assert dl.content == b"%PDF-1.4 evidence"
+    assert "attachment" in dl.headers.get("content-disposition", "")
+
+    assert client.get(f"/documents/{doc_id}/download", headers=head_b).status_code == 404
+
+    bad = client.post(
+        "/documents",
+        files={"file": ("malware.exe", b"MZ", "application/octet-stream")},
+        data={"entity_type": "client"},
+        headers=head_a,
+    )
+    assert bad.status_code == 400
+
+
 def test_rls_fails_closed_without_firm_context():
     """At the database, with no app.current_firm_id set, RLS returns zero firm-scoped
     rows even though the app connects as the table owner (FORCE ROW LEVEL SECURITY).

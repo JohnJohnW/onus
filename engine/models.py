@@ -720,3 +720,22 @@ class SanctionsScreening(Base):
     matches = Column(JSONB, nullable=True)
     screened_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class Document(Base):
+    """An uploaded file (ID document, verification evidence, signed approval, an
+    evaluation report) attached to a firm entity. The bytes live in the storage
+    backend; this row is the firm-scoped metadata and the retention anchor."""
+
+    __tablename__ = "documents"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    entity_type = Column(String, nullable=False)  # client | party | matter | cdd_check | evaluation | report | other
+    entity_id = Column(UUID(as_uuid=True), nullable=True)
+    filename = Column(String, nullable=False)  # original filename (metadata only)
+    content_type = Column(String, nullable=True)
+    size_bytes = Column(Integer, nullable=False)
+    storage_key = Column(String, nullable=False)  # generated id within the firm's store
+    uploaded_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

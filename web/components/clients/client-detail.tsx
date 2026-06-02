@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import type { CatalogueItem } from "@/components/clients/clients-list";
+import { DocumentsSection } from "@/components/clients/documents-section";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -570,6 +571,14 @@ export function ClientDetailView({
             </form>
           </CardContent>
         </Card>
+      </section>
+
+      {/* Documents & evidence */}
+      <section className="mb-8">
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
+          Documents &amp; evidence
+        </h2>
+        <DocumentsSection entityType="client" entityId={client.id} />
       </section>
 
       {/* Matters */}

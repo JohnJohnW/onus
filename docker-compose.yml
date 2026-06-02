@@ -44,12 +44,15 @@ services:
       # ALEMBIC_DATABASE_URL. onus_app is created by the RLS migration.
       DATABASE_URL: postgresql://onus_app:onus_local@db:5432/onus
       ALEMBIC_DATABASE_URL: postgresql://onus:onus_local@db:5432/onus
+      # Uploaded documents live on a named volume, off the bind-mounted source.
+      STORAGE_DIR: /data/documents
     ports:
       - "8000:8000"
     volumes:
       - ./engine:/app
       # Keep the host's local .venv out of the container.
       - /app/.venv
+      - onus_storage:/data
     command: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     depends_on:
       db:
@@ -78,3 +81,4 @@ services:
 
 volumes:
   onus_db_data:
+  onus_storage:

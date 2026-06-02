@@ -10,6 +10,7 @@ from routers import audit as audit_router
 from routers import auth as auth_router
 from routers import clients as clients_router
 from routers import dashboard as dashboard_router
+from routers import documents as documents_router
 from routers import evaluations as evaluations_router
 from routers import firms as firms_router
 from routers import governance as governance_router
@@ -38,6 +39,7 @@ app.include_router(evaluations_router.router, prefix="/evaluations", tags=["eval
 app.include_router(dashboard_router.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(audit_router.router, prefix="/audit-log", tags=["audit"])
 app.include_router(sanctions_router.router, prefix="/sanctions", tags=["sanctions"])
+app.include_router(documents_router.router, prefix="/documents", tags=["documents"])
 
 
 @app.get("/health")
