@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from agent_log import record_agent_task
 from auth.dependencies import get_current_user
 from database import get_db
 from models import SanctionsEntry, SanctionsListVersion, SanctionsScreening, User
@@ -175,6 +176,18 @@ def screen(
                 matches=candidates,
                 screened_by_user_id=current_user.id,
             )
+        )
+        record_agent_task(
+            db,
+            current_user.firm_id,
+            task_type="sanctions_screened",
+            summary=(
+                f"Screened \"{name}\" against the DFAT list: {len(candidates)} potential match"
+                f"{'' if len(candidates) == 1 else 'es'}"
+            ),
+            human_action_required=len(candidates) > 0,
+            human_action_type="review_sanctions_matches" if candidates else None,
+            input_state={"query_name": name},
         )
         db.commit()
     return ScreenResultOut(

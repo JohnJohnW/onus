@@ -53,6 +53,9 @@ def _deadline_href(deadline_type: str) -> str:
 
 
 def _task_summary(task: AgentTask) -> str:
+    out = task.output_state or {}
+    if isinstance(out, dict) and out.get("summary"):
+        return str(out["summary"])
     base = (task.task_type or task.agent_type or "Task").replace("_", " ").strip()
     return base[:1].upper() + base[1:] if base else "Task"
 

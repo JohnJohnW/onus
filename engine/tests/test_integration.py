@@ -103,6 +103,27 @@ def test_cross_tenant_isolation(client):
     assert client.get(f"/clients/{client_id}", headers=head_b).status_code == 404
 
 
+def test_matter_classification_populates_agent_feed(client, monkeypatch):
+    """The classify endpoint runs the AI (mock here), returns a draft suggestion, and
+    records an AgentTask that shows up in the dashboard 'Onus activity' feed."""
+    monkeypatch.setenv("AI_PROVIDER", "mock")  # deterministic; no real API call
+    _, token = _signup(client, "Classify Firm")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = client.post(
+        "/matters/classify",
+        json={"description": "acting for the buyer in a residential property purchase"},
+        headers=headers,
+    )
+    assert res.status_code == 200, res.text
+    assert "rationale" in res.json()
+
+    summary = client.get("/dashboard/summary", headers=headers)
+    assert summary.status_code == 200
+    activity = summary.json().get("recent_agent_activity", [])
+    assert any("matter" in a["summary"].lower() for a in activity), activity
+
+
 def test_rls_fails_closed_without_firm_context():
     """At the database, with no app.current_firm_id set, RLS returns zero firm-scoped
     rows even though the app connects as the table owner (FORCE ROW LEVEL SECURITY).

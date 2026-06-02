@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from agent_log import record_agent_task
 from ai.drafting import draft_smr_narrative
 from auth.dependencies import get_current_user
 from database import get_db
@@ -265,6 +266,15 @@ async def draft_narrative(
             entity_type="report",
             entity_id=r.id,
         )
+    )
+    record_agent_task(
+        db,
+        current_user.firm_id,
+        task_type="smr_narrative_drafted",
+        summary="Drafted the grounds for suspicion for an SMR; review before lodging",
+        human_action_required=True,
+        human_action_type="review_smr",
+        input_state={"report_id": str(r.id)},
     )
     db.commit()
     db.refresh(r)

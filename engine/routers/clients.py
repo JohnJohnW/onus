@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from agent_log import record_agent_task
+from ai.classification import classify_matter
 from auth.dependencies import get_current_user
 from database import get_db
 from models import AuditLog, CddCheck, Client, ClientParty, Matter, MonitoringAlert, User
@@ -21,6 +23,8 @@ from schemas import (
     ClientListItemOut,
     ClientsMetaOut,
     ClientUpdate,
+    MatterClassifyOut,
+    MatterClassifyRequest,
     MatterCreate,
     MatterOut,
     PartyCreate,
@@ -342,6 +346,44 @@ def record_cdd(
     db.commit()
     db.refresh(c)
     return _detail(c)
+
+
+@matters_router.post("/classify", response_model=MatterClassifyOut)
+async def classify(
+    body: MatterClassifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MatterClassifyOut:
+    """Ask Onus to classify a plain-English matter against the designated services.
+    A draft suggestion for the solicitor to confirm; Onus never decides this for them."""
+    description = (body.description or "").strip()
+    if not description:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A matter description is required.")
+    result = await classify_matter(description=description, services=DESIGNATED_SERVICES)
+    label = next((lbl for key, lbl, _ in DESIGNATED_SERVICES if key == result["service_key"]), None)
+    record_agent_task(
+        db,
+        current_user.firm_id,
+        task_type="matter_classified",
+        summary=(
+            f"Classified a matter as {label}"
+            if label
+            else "Reviewed a matter; no designated service identified"
+        ),
+        human_action_required=True,
+        human_action_type="confirm_classification",
+        input_state={"description": description[:500]},
+        output_state=result,
+    )
+    db.commit()
+    return MatterClassifyOut(
+        service_key=result["service_key"],
+        service_label=label,
+        is_designated_service=result["is_designated_service"],
+        customer=result["customer"],
+        cdd_tier=result["cdd_tier"],
+        rationale=result["rationale"],
+    )
 
 
 @matters_router.post("", response_model=MatterOut)

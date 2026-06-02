@@ -237,6 +237,15 @@ export function ClientDetailView({
   const [busy, setBusy] = useState(false);
   const [party, setParty] = useState({ name: "", bo_basis: "ownership_25pct", is_pep: false, sanctions_hit: false });
   const [matter, setMatter] = useState({ designated_service_key: services[0]?.key ?? "", description: "" });
+  const [classifying, setClassifying] = useState(false);
+  const [suggestion, setSuggestion] = useState<{
+    service_key: string | null;
+    service_label: string | null;
+    is_designated_service: boolean | null;
+    customer: string | null;
+    cdd_tier: string | null;
+    rationale: string;
+  } | null>(null);
   const latestCdd = client.cdd_checks[0];
 
   async function post(path: string, body: unknown) {
@@ -277,7 +286,27 @@ export function ClientDetailView({
       designated_service_key: matter.designated_service_key,
       description: matter.description || null,
     });
-    if (okRes) setMatter({ designated_service_key: services[0]?.key ?? "", description: "" });
+    if (okRes) {
+      setMatter({ designated_service_key: services[0]?.key ?? "", description: "" });
+      setSuggestion(null);
+    }
+  }
+
+  async function classifyMatter() {
+    if (!matter.description.trim() || classifying) return;
+    setClassifying(true);
+    setSuggestion(null);
+    const res = await fetch("/api/matters/classify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description: matter.description.trim(), client_id: client.id }),
+    });
+    setClassifying(false);
+    if (res.ok) {
+      const data = await res.json();
+      setSuggestion(data);
+      if (data.service_key) setMatter((m) => ({ ...m, designated_service_key: data.service_key }));
+    }
   }
 
   return (
@@ -445,12 +474,40 @@ export function ClientDetailView({
               <input
                 value={matter.description}
                 onChange={(e) => setMatter({ ...matter, description: e.target.value })}
-                placeholder="Matter description (optional)"
+                placeholder="Describe the matter, then let Onus classify it..."
                 className={`${field} w-full`}
               />
-              <Button type="submit" size="sm" disabled={busy}>
-                Open matter
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy || classifying || !matter.description.trim()}
+                  onClick={classifyMatter}
+                >
+                  {classifying ? "Classifying..." : "Classify with Onus"}
+                </Button>
+                <Button type="submit" size="sm" disabled={busy}>
+                  Open matter
+                </Button>
+              </div>
+              {suggestion && (
+                <div className="rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs">
+                  {suggestion.service_label ? (
+                    <p className="text-neutral-200">
+                      Suggested: <span className="text-neutral-100">{suggestion.service_label}</span>
+                      {suggestion.cdd_tier ? ` - ${suggestion.cdd_tier} CDD` : ""}
+                      {suggestion.customer ? ` - customer: ${suggestion.customer}` : ""}
+                    </p>
+                  ) : (
+                    <p className="text-amber-300">
+                      Onus could not identify a designated service - review manually.
+                    </p>
+                  )}
+                  {suggestion.rationale && <p className="mt-1 text-neutral-500">{suggestion.rationale}</p>}
+                  <p className="mt-1 text-neutral-600">A suggestion to confirm, not advice - you decide.</p>
+                </div>
+              )}
               <p className="text-xs text-neutral-600">
                 A matter can only be acted on once CDD is complete (Act s28(1)).
               </p>
