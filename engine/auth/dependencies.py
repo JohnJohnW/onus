@@ -47,7 +47,7 @@ def get_current_user(
         raise cred_exc
 
     user = db.get(User, uid)
-    if user is None:
+    if user is None or not user.is_active:
         raise cred_exc
 
     # Pin the firm context for row-level security. is_local=true scopes it to the

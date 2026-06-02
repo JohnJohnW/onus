@@ -120,7 +120,8 @@ def escalate_alert(
 ) -> AlertOut:
     """Escalate an alert into a draft SMR (reasonable grounds to suspect)."""
     a = _get_alert(db, current_user.firm_id, alert_id)
-    if a.status == "escalated_to_smr" and a.smr_report_id:
+    if a.status == "escalated_to_smr":
+        # Already escalated; never create a second SMR for the same alert.
         return alert_out(a)
     now = datetime.now(timezone.utc)
     due, basis = _compute_due("smr", tf=body.tf, lpp=body.lpp_claimed, trigger=now, period_end=None)
