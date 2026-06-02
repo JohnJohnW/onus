@@ -47,6 +47,20 @@ type Alert = {
   status: string;
   smr_report_id: string | null;
 };
+type ScreenCandidate = {
+  primary_name: string;
+  matched_name: string;
+  score: number;
+  entity_type: string;
+  citizenship: string | null;
+  listing_info: string | null;
+};
+type ScreenResult = {
+  query_name: string;
+  match_count: number;
+  candidates: ScreenCandidate[];
+  noList?: boolean;
+};
 export type Indicator = { group: string; group_label: string; key: string; label: string };
 export type ClientDetail = {
   id: string;
@@ -72,6 +86,44 @@ const field =
 
 function titleize(s: string): string {
   return s.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function ScreenResultView({ result }: { result: ScreenResult }) {
+  if (result.noList) {
+    return (
+      <p className="text-xs text-amber-300">
+        No sanctions list is loaded. Load the DFAT Consolidated List in Settings, then screen.
+      </p>
+    );
+  }
+  if (result.match_count === 0) {
+    return (
+      <p className="text-xs text-emerald-400">
+        No potential matches for &quot;{result.query_name}&quot;. A screening aid, not a clearance -
+        recorded for your audit trail.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs text-amber-300">
+        {result.match_count} potential match{result.match_count === 1 ? "" : "es"} - review before proceeding:
+      </p>
+      {result.candidates.map((c, i) => (
+        <div key={`${c.primary_name}-${i}`} className="rounded border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-neutral-100">{c.primary_name}</span>
+            <span className="text-amber-300">{Math.round(c.score * 100)}%</span>
+          </div>
+          <p className="text-neutral-500">
+            {c.entity_type}
+            {c.citizenship ? ` - ${c.citizenship}` : ""}
+          </p>
+          {c.listing_info && <p className="mt-0.5 text-neutral-600">{c.listing_info}</p>}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function MonitoringSection({
@@ -246,6 +298,9 @@ export function ClientDetailView({
     cdd_tier: string | null;
     rationale: string;
   } | null>(null);
+  const [clientScreen, setClientScreen] = useState<ScreenResult | null>(null);
+  const [partyScreen, setPartyScreen] = useState<ScreenResult | null>(null);
+  const [screening, setScreening] = useState<null | "client" | "party">(null);
   const latestCdd = client.cdd_checks[0];
 
   async function post(path: string, body: unknown) {
@@ -258,6 +313,47 @@ export function ClientDetailView({
     setBusy(false);
     if (res.ok) router.refresh();
     return res.ok;
+  }
+
+  async function patch(path: string, body: unknown) {
+    setBusy(true);
+    const res = await fetch(path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setBusy(false);
+    if (res.ok) router.refresh();
+    return res.ok;
+  }
+
+  async function screenName(name: string, subjectType: string, subjectId?: string): Promise<ScreenResult | null> {
+    const res = await fetch("/api/sanctions/screen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, subject_type: subjectType, subject_id: subjectId ?? null, record: true }),
+    });
+    if (res.status === 409) return { query_name: name, match_count: 0, candidates: [], noList: true };
+    if (!res.ok) return null;
+    return res.json();
+  }
+
+  async function screenClient() {
+    setScreening("client");
+    setClientScreen(null);
+    const result = await screenName(client.display_name, "client", client.id);
+    setScreening(null);
+    setClientScreen(result);
+  }
+
+  async function screenParty() {
+    if (!party.name.trim()) return;
+    setScreening("party");
+    setPartyScreen(null);
+    const result = await screenName(party.name.trim(), "party");
+    setScreening(null);
+    setPartyScreen(result);
+    if (result && result.match_count > 0) setParty((p) => ({ ...p, sanctions_hit: true }));
   }
 
   async function runCdd() {
@@ -330,6 +426,41 @@ export function ClientDetailView({
           Sanctions match - you must not provide a designated service to this client. CDD is blocked.
         </div>
       )}
+
+      {/* Sanctions screening */}
+      <section className="mb-8">
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
+          Sanctions screening
+        </h2>
+        <Card className="border-neutral-800 bg-neutral-900/50">
+          <CardContent className="space-y-3 p-5 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-neutral-300">
+                Screen &quot;{client.display_name}&quot; against the DFAT Consolidated List (Rules s5-3).
+              </span>
+              <Button size="sm" variant="outline" disabled={busy || screening === "client"} onClick={screenClient}>
+                {screening === "client" ? "Screening..." : "Screen against sanctions"}
+              </Button>
+            </div>
+            {clientScreen && <ScreenResultView result={clientScreen} />}
+            {clientScreen && !clientScreen.noList && clientScreen.match_count > 0 && !client.sanctions_hit && (
+              <Button size="sm" disabled={busy} onClick={() => patch(`/api/clients/${client.id}`, { sanctions_hit: true })}>
+                Confirm match - block CDD
+              </Button>
+            )}
+            {client.sanctions_hit && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => patch(`/api/clients/${client.id}`, { sanctions_hit: false })}
+              >
+                Clear sanctions flag
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
       {/* CDD */}
       <section className="mb-8">
@@ -422,10 +553,20 @@ export function ClientDetailView({
                   />
                   Sanctions match
                 </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy || screening === "party" || !party.name.trim()}
+                  onClick={screenParty}
+                >
+                  {screening === "party" ? "Screening..." : "Screen name"}
+                </Button>
                 <Button type="submit" size="sm" variant="outline" disabled={busy || !party.name.trim()}>
                   Add owner
                 </Button>
               </div>
+              {partyScreen && <ScreenResultView result={partyScreen} />}
             </form>
           </CardContent>
         </Card>
