@@ -9,7 +9,14 @@ from auth.dependencies import get_current_user
 from auth.jwt import create_access_token
 from database import get_db, set_session_firm
 from models import Firm, FirmRiskState, GovernanceRole, User
-from schemas import AuthResponse, LoginRequest, SignupRequest, UserOut, UserWithFirm
+from schemas import (
+    AuthResponse,
+    ChangePasswordRequest,
+    LoginRequest,
+    SignupRequest,
+    UserOut,
+    UserWithFirm,
+)
 from security import hash_password, verify_password
 
 router = APIRouter()
@@ -78,3 +85,21 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
 def me(current_user: User = Depends(get_current_user)) -> UserWithFirm:
     # Validated while the request's DB session is open so the firm relationship loads.
     return UserWithFirm.model_validate(current_user)
+
+
+@router.post("/change-password")
+def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Change your own password (e.g. after an admin creates your account)."""
+    if not verify_password(body.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Your current password is incorrect.",
+        )
+    current_user.hashed_password = hash_password(body.new_password)
+    db.add(current_user)
+    db.commit()
+    return {"status": "ok"}

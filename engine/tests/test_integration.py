@@ -215,6 +215,58 @@ def test_review_trigger_resolution(client):
     assert tid not in open_after
 
 
+def test_user_management_and_role_enforcement(client):
+    _, admin_token = _signup(client, "Team Firm")
+    admin_h = {"Authorization": f"Bearer {admin_token}"}
+
+    member_email = f"mem_{uuid.uuid4().hex[:8]}@test.local"
+    created = client.post(
+        "/firms/users",
+        json={"full_name": "Mem Ber", "email": member_email, "role": "member"},
+        headers=admin_h,
+    )
+    assert created.status_code == 200, created.text
+    temp = created.json()["temporary_password"]
+    assert temp and created.json()["user"]["role"] == "member"
+
+    login = client.post("/auth/login", json={"email": member_email, "password": temp})
+    assert login.status_code == 200
+    member_h = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    # A member is gated from admin actions and from approving.
+    blocked = client.post(
+        "/firms/users",
+        json={"full_name": "X", "email": "x@test.local", "role": "member"},
+        headers=member_h,
+    )
+    assert blocked.status_code == 403
+    assert client.post("/risk-assessment/approve", headers=member_h).status_code == 403
+    # The admin is not gated (no RA yet -> not 403).
+    assert client.post("/risk-assessment/approve", headers=admin_h).status_code != 403
+
+
+def test_change_password(client):
+    email, token = _signup(client, "Password Firm")
+    headers = {"Authorization": f"Bearer {token}"}
+    changed = client.post(
+        "/auth/change-password",
+        json={"current_password": "password1234", "new_password": "a-brand-new-pass-9"},
+        headers=headers,
+    )
+    assert changed.status_code == 200
+    assert client.post("/auth/login", json={"email": email, "password": "a-brand-new-pass-9"}).status_code == 200
+    assert client.post("/auth/login", json={"email": email, "password": "password1234"}).status_code == 401
+
+
+def test_cannot_demote_self(client):
+    from jose import jwt as jose_jwt
+
+    _, token = _signup(client, "Solo Admin Firm")
+    headers = {"Authorization": f"Bearer {token}"}
+    uid = jose_jwt.get_unverified_claims(token)["user_id"]
+    assert client.patch(f"/firms/users/{uid}", json={"role": "member"}, headers=headers).status_code == 400
+
+
 def test_rls_fails_closed_without_firm_context():
     """At the database, with no app.current_firm_id set, RLS returns zero firm-scoped
     rows even though the app connects as the table owner (FORCE ROW LEVEL SECURITY).

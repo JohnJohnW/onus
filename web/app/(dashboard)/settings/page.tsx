@@ -1,6 +1,8 @@
+import { ChangePasswordCard } from "@/components/settings/change-password-card";
 import { GovernancePanel } from "@/components/settings/governance-panel";
 import { SanctionsPanel } from "@/components/settings/sanctions-panel";
 import { SettingsForm } from "@/components/settings/settings-form";
+import { UsersPanel } from "@/components/settings/users-panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 
@@ -16,7 +18,7 @@ type Firm = {
 };
 type SettingsData = {
   firm: Firm;
-  users: { id: string; email: string; full_name: string | null; role: string }[];
+  users: { id: string; email: string; full_name: string | null; role: string; is_active?: boolean }[];
   governance_roles: {
     id: string;
     role: string;
@@ -52,7 +54,7 @@ export default async function SettingsPage() {
       ? await getSettings(session.access_token, session.firm_id)
       : null;
 
-  if (!data) {
+  if (!session || !data) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
@@ -98,19 +100,18 @@ export default async function SettingsPage() {
 
       <section>
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">Users</h2>
-        <Card className="border-neutral-800 bg-neutral-900/50">
-          <CardContent className="divide-y divide-neutral-800 p-0">
-            {users.map((u) => (
-              <div key={u.id} className="flex items-center justify-between gap-4 px-5 py-4">
-                <div className="min-w-0">
-                  <p className="truncate text-sm text-neutral-200">{u.full_name ?? u.email}</p>
-                  <p className="truncate text-xs text-neutral-500">{u.email}</p>
-                </div>
-                <span className="shrink-0 text-xs capitalize text-neutral-400">{u.role}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <UsersPanel
+          users={users}
+          isAdmin={session.role === "admin"}
+          currentUserId={session.user_id}
+        />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
+          Your account
+        </h2>
+        <ChangePasswordCard />
       </section>
 
       <section>

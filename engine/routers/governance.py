@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from auth.dependencies import get_current_user
+from auth.dependencies import get_current_user, require_admin
 from database import get_db
 from models import AuditLog, Firm, GovernanceRole, User
 from schemas import GovernanceAssignRequest, GovernanceRoleOut, GovernanceRolesRequest
@@ -33,7 +33,7 @@ def list_roles(
 @router.post("/assign", response_model=GovernanceRoleOut)
 def assign_role(
     body: GovernanceAssignRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> GovernanceRoleOut:
     """Assign a governance role, enforcing compliance-officer eligibility (Act s26J)."""
@@ -86,7 +86,7 @@ def assign_role(
 @router.post("/roles")
 def set_roles(
     body: GovernanceRolesRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     firm_id = current_user.firm_id
