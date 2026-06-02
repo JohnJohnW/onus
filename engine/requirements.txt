@@ -9,6 +9,8 @@ python-dotenv
 bcrypt
 python-jose[cryptography]
 httpx
+openpyxl
+python-multipart
 pytest
 anthropic
 # openai  # uncomment when using AI_PROVIDER=openai or azure_openai

@@ -1,4 +1,5 @@
 import { GovernancePanel } from "@/components/settings/governance-panel";
+import { SanctionsPanel } from "@/components/settings/sanctions-panel";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
@@ -117,6 +118,13 @@ export default async function SettingsPage() {
           Governance roles
         </h2>
         <GovernancePanel users={users} roles={governance_roles} />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
+          Sanctions screening
+        </h2>
+        <SanctionsPanel />
       </section>
     </div>
   );
