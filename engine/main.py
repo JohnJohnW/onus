@@ -17,6 +17,7 @@ from routers import onboarding as onboarding_router
 from routers import program as program_router
 from routers import reports as reports_router
 from routers import risk_assessment as risk_assessment_router
+from routers import sanctions as sanctions_router
 
 app = FastAPI(title="Onus Engine", version="0.1.0")
 
@@ -36,6 +37,7 @@ app.include_router(reports_router.records_router, prefix="/records", tags=["reco
 app.include_router(evaluations_router.router, prefix="/evaluations", tags=["evaluations"])
 app.include_router(dashboard_router.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(audit_router.router, prefix="/audit-log", tags=["audit"])
+app.include_router(sanctions_router.router, prefix="/sanctions", tags=["sanctions"])
 
 
 @app.get("/health")

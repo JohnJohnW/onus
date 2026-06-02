@@ -636,3 +636,43 @@ class EvaluationsOut(BaseModel):
     first_evaluation_deadline: Optional[str] = None
     enrolment_known: bool = False
     evaluations: List[EvaluationOut]
+
+
+# ----- Sanctions screening -----
+
+
+class SanctionsStatusOut(BaseModel):
+    loaded: bool = False
+    source: Optional[str] = None
+    origin: Optional[str] = None  # auto_fetch | manual_upload
+    fetched_at: Optional[datetime] = None
+    entry_count: int = 0
+    content_hash: Optional[str] = None
+    url_configured: bool = False
+
+
+class ScreenRequest(BaseModel):
+    name: str
+    subject_type: Optional[str] = None  # client | party | adhoc
+    subject_id: Optional[uuid.UUID] = None
+    threshold: Optional[float] = None
+    record: bool = False
+
+
+class ScreenCandidate(BaseModel):
+    reference: Optional[str] = None
+    entity_type: str
+    primary_name: str
+    matched_name: str
+    score: float
+    aliases: Optional[List[str]] = None
+    dob: Optional[str] = None
+    citizenship: Optional[str] = None
+    listing_info: Optional[str] = None
+
+
+class ScreenResultOut(BaseModel):
+    query_name: str
+    list_fetched_at: Optional[datetime] = None
+    match_count: int
+    candidates: List[ScreenCandidate]

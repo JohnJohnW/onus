@@ -655,3 +655,68 @@ class MonitoringAlert(Base):
     status = Column(String, nullable=False, server_default="open")  # open|reviewing|escalated_to_smr|dismissed
     smr_report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+# --- Sanctions screening (DFAT Consolidated List, Rules s5-3) ---
+# The list itself is global reference data (the same for every firm), so the
+# version and entry tables are NOT firm-scoped. Screenings reference a firm.
+
+
+class SanctionsListVersion(Base):
+    """One ingested snapshot of a sanctions source (e.g. the DFAT Consolidated List)."""
+
+    __tablename__ = "sanctions_list_versions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source = Column(String, nullable=False)  # e.g. dfat_consolidated
+    origin = Column(String, nullable=False)  # auto_fetch | manual_upload
+    fetched_at = Column(DateTime(timezone=True), nullable=False)
+    content_hash = Column(String, nullable=False)
+    entry_count = Column(Integer, nullable=False, server_default=text("0"))
+    is_current = Column(Boolean, nullable=False, server_default=text("false"), index=True)
+    note = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    entries = relationship("SanctionsEntry", back_populates="version", cascade="all, delete-orphan")
+
+
+class SanctionsEntry(Base):
+    """A designated person/entity within a list version (primary name + aliases)."""
+
+    __tablename__ = "sanctions_entries"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    version_id = Column(UUID(as_uuid=True), ForeignKey("sanctions_list_versions.id"), nullable=False, index=True)
+    reference = Column(String, nullable=True)
+    entity_type = Column(String, nullable=False, server_default="unknown")  # individual | entity | unknown
+    primary_name = Column(String, nullable=False)
+    search_names = Column(JSONB, nullable=False)  # normalized names (primary + aliases) for matching
+    aliases = Column(JSONB, nullable=True)
+    dob = Column(String, nullable=True)
+    place_of_birth = Column(String, nullable=True)
+    citizenship = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    listing_info = Column(String, nullable=True)
+    raw = Column(JSONB, nullable=True)  # the full original row, for completeness
+
+    version = relationship("SanctionsListVersion", back_populates="entries")
+
+
+class SanctionsScreening(Base):
+    """A record of screening a name against a list version (kept for the audit trail)."""
+
+    __tablename__ = "sanctions_screenings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    subject_type = Column(String, nullable=True)  # client | party | adhoc
+    subject_id = Column(UUID(as_uuid=True), nullable=True)
+    query_name = Column(String, nullable=False)
+    version_id = Column(UUID(as_uuid=True), ForeignKey("sanctions_list_versions.id"), nullable=True)
+    match_count = Column(Integer, nullable=False, server_default=text("0"))
+    top_score = Column(Numeric(4, 3), nullable=True)
+    status = Column(String, nullable=False, server_default="screened")  # screened | cleared | confirmed
+    decision_note = Column(Text, nullable=True)
+    matches = Column(JSONB, nullable=True)
+    screened_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

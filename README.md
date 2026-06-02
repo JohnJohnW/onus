@@ -94,6 +94,7 @@ flowchart TD
 | **Risk Profile** | ML/TF/PF risk assessment - 4 categories, likelihoodximpact matrix, country-risk engine, PF screen, AUSTRAC-communications register | Step 2 - Act s26C |
 | **Compliance Program** | The policy set + obligation coverage + document-and-approve (senior-manager sign-off) + review lifecycle | Steps 1, 3, 4 - Act ss26F-26P |
 | **Clients & Matters** | Per-customer-type KYC, beneficial owners, the CDD-tier engine, the before-you-act gate, monitoring + alert->SMR | Step 3 - Act Pt 2; Risk insights |
+| **Sanctions screening** | DFAT Consolidated List: auto-fetch + manual upload, versioned snapshots, name/alias matching surfaced for human adjudication | Rules s5-3 |
 | **Reporting** | SMR / TTR / annual compliance report (with the IVTS and cross-border reports gated as non-routine) - real deadlines, tipping-off guardrails, 4-regime record retention | Act Pt 3, Pt 10 |
 | **Evaluation** | Independent evaluation - staggered deadline, independence gate, findings & remediation | Step 5 - Transitional Rules s17 |
 | **Audit Trail / Settings** | Immutable action log; firm details, users, governance roles | Act s116 |
