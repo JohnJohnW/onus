@@ -1,0 +1,81 @@
+# Onus - production stack (single Australian host).
+#
+# Config and secrets come from the ENVIRONMENT - inject them via your host's secrets
+# manager / orchestrator, NOT from a committed file. See docs/deployment/README.md and
+# .env.production.example for the full variable list and the Australian data-residency
+# guidance.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Put a TLS-terminating reverse proxy (Caddy / nginx / a cloud load balancer) in front
+# of `web`. For a managed Australian-region Postgres, delete the `db` service below and
+# point DATABASE_URL / ALEMBIC_DATABASE_URL at it. The `${VAR:?...}` entries make
+# compose refuse to start if a required secret is missing.
+
+services:
+  web:
+    build:
+      context: ./web
+      dockerfile: ../infrastructure/docker/web.prod.Dockerfile
+    environment:
+      NODE_ENV: production
+      ENGINE_INTERNAL_URL: http://engine:8000
+      NEXTAUTH_URL: ${NEXTAUTH_URL:?set NEXTAUTH_URL to your public https URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?set a strong NEXTAUTH_SECRET}
+    ports:
+      - "3000:3000"   # reverse proxy connects here; do not expose publicly without TLS
+    restart: unless-stopped
+    depends_on:
+      - engine
+
+  engine:
+    build:
+      context: ./engine
+      dockerfile: ../infrastructure/docker/engine.prod.Dockerfile
+    environment:
+      ONUS_ENV: production   # refuses to start with a missing/weak JWT_SECRET
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL for the onus_app role}
+      ALEMBIC_DATABASE_URL: ${ALEMBIC_DATABASE_URL:?set ALEMBIC_DATABASE_URL for the owner role}
+      # Password the migration uses when it creates the onus_app role on a fresh DB.
+      # Must match the password in DATABASE_URL above.
+      ONUS_APP_PASSWORD: ${ONUS_APP_PASSWORD:?set ONUS_APP_PASSWORD (must match DATABASE_URL)}
+      JWT_SECRET: ${JWT_SECRET:?set a strong JWT_SECRET}
+      AI_PROVIDER: ${AI_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_DEPLOYMENT_NAME: ${AZURE_OPENAI_DEPLOYMENT_NAME:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      STORAGE_DIR: /data/documents
+      AUTH_MAX_FAILED_LOGINS: ${AUTH_MAX_FAILED_LOGINS:-10}
+    volumes:
+      - onus_storage:/data
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Delete this service if you use a managed Australian-region Postgres (recommended for
+  # backups, HA and point-in-time recovery). Keep the database in an Australian region.
+  db:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-onus}
+      POSTGRES_USER: ${POSTGRES_USER:-onus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a strong POSTGRES_PASSWORD}
+    volumes:
+      - onus_db_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    # Not published to the host: the database is only reachable inside the compose network.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-onus} -d ${POSTGRES_DB:-onus}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  onus_db_data:
+  onus_storage:

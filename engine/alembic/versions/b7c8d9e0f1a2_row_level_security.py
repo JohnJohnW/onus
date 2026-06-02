@@ -15,6 +15,7 @@ Revision ID: b7c8d9e0f1a2
 Revises: f1a2b3c4d5e6
 Create Date: 2026-06-02 00:30:00.000000
 """
+import os
 from typing import Sequence, Union
 
 from alembic import op
@@ -70,13 +71,16 @@ def upgrade() -> None:
     # RLS never applies to a superuser or to a role with BYPASSRLS, so the app must
     # connect as a least-privilege, non-superuser role. Create it and grant DML on the
     # current and (via default privileges) future tables. Migrations keep running as
-    # the owner via ALEMBIC_DATABASE_URL. The dev password matches the rest of the
-    # local stack; manage it via a secret in any real deployment.
+    # the owner via ALEMBIC_DATABASE_URL. The password comes from ONUS_APP_PASSWORD so
+    # production can set a strong secret on a fresh database (default matches the local
+    # dev stack); set DATABASE_URL's password to match. Only runs when the role does not
+    # already exist, so a managed-Postgres operator can pre-create onus_app instead.
+    app_password = os.environ.get("ONUS_APP_PASSWORD", "onus_local").replace("'", "''")
     op.execute(
-        """
+        f"""
         DO $$ BEGIN
           IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'onus_app') THEN
-            CREATE ROLE onus_app LOGIN PASSWORD 'onus_local'
+            CREATE ROLE onus_app LOGIN PASSWORD '{app_password}'
               NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
           END IF;
         END $$;
