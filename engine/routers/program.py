@@ -419,3 +419,29 @@ def add_trigger(
     db.commit()
     db.refresh(trigger)
     return _trigger_out(trigger)
+
+
+@router.post("/triggers/{trigger_id}/resolve", response_model=ReviewTriggerOut)
+def resolve_trigger(
+    trigger_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReviewTriggerOut:
+    """Close a review trigger once the program/policies have been reviewed in response."""
+    trigger = db.get(ReviewTrigger, trigger_id)
+    if trigger is None or trigger.firm_id != current_user.firm_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trigger not found.")
+    trigger.status = "completed"
+    trigger.completed_at = datetime.now(timezone.utc)
+    db.add(
+        AuditLog(
+            firm_id=current_user.firm_id,
+            user_id=current_user.id,
+            action="program.review_trigger_resolved",
+            entity_type="review_trigger",
+            entity_id=trigger.id,
+        )
+    )
+    db.commit()
+    db.refresh(trigger)
+    return _trigger_out(trigger)

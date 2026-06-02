@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from agent_log import record_agent_task
 from ai.drafting import draft_smr_narrative
 from auth.dependencies import get_current_user
+from deadlines import complete_deadlines
 from database import get_db
 from models import AuditLog, Client, Matter, Record, Report, ReportDecisionLog, User
 from schemas import (
@@ -192,6 +193,8 @@ def update_report(
             r.lodged_at = datetime.now(timezone.utc)
             r.lodged_by_user_id = current_user.id
             _add_record(db, current_user.firm_id, "report", r.id)
+            if r.type == "annual_compliance":
+                complete_deadlines(db, current_user.firm_id, "annual_report", current_user.id)
     db.add(
         AuditLog(
             firm_id=current_user.firm_id,

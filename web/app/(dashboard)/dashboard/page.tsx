@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { CompleteDeadlineButton } from "@/components/dashboard/complete-deadline-button";
 import { Greeting } from "@/components/dashboard/greeting";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { auth } from "@/lib/auth";
@@ -175,14 +176,17 @@ export default async function DashboardPage() {
                     <p className="truncate text-sm text-neutral-200">{d.name}</p>
                     <p className="mt-0.5 text-xs text-neutral-500">{formatDate(d.due_at)}</p>
                   </div>
-                  <span
-                    className={cn(
-                      "shrink-0 whitespace-nowrap text-xs font-medium",
-                      daysRemainingTone(d.days_remaining)
-                    )}
-                  >
-                    {daysRemainingLabel(d.days_remaining)}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-4">
+                    <span
+                      className={cn(
+                        "whitespace-nowrap text-xs font-medium",
+                        daysRemainingTone(d.days_remaining)
+                      )}
+                    >
+                      {daysRemainingLabel(d.days_remaining)}
+                    </span>
+                    <CompleteDeadlineButton id={d.id} />
+                  </div>
                 </div>
               ))}
             </CardContent>

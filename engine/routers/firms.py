@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from database import get_db
+from deadlines import complete_deadlines
 from models import ComplianceDeadline, Firm, GovernanceRole, User
 from schemas import FirmOut, FirmSettingsOut, FirmUpdate, GovernanceRoleOut, UserOut
 
@@ -80,6 +81,9 @@ def update_firm(
                     firm_id=firm_id, deadline_type="enrolment", due_at=ENROLMENT_DEADLINE
                 )
             )
+    elif data.get("enrolment_status") == "enrolled":
+        # Enrolment is done; close the enrolment deadline.
+        complete_deadlines(db, firm_id, "enrolment", current_user.id)
 
     db.commit()
     db.refresh(firm)

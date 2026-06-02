@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -187,3 +187,20 @@ def summary(
         recent_agent_activity=recent_activity,
         upcoming_deadlines=upcoming_deadlines,
     )
+
+
+@router.post("/deadlines/{deadline_id}/complete")
+def complete_deadline(
+    deadline_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Mark a compliance deadline done (manual completion)."""
+    d = db.get(ComplianceDeadline, deadline_id)
+    if d is None or d.firm_id != current_user.firm_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deadline not found.")
+    d.status = "done"
+    d.completed_at = datetime.now(timezone.utc)
+    d.completed_by_user_id = current_user.id
+    db.commit()
+    return {"status": "done"}
