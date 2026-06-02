@@ -1,4 +1,5 @@
 import { ChangePasswordCard } from "@/components/settings/change-password-card";
+import { DataResidencyPanel } from "@/components/settings/data-residency-panel";
 import { GovernancePanel } from "@/components/settings/governance-panel";
 import { SanctionsPanel } from "@/components/settings/sanctions-panel";
 import { SettingsForm } from "@/components/settings/settings-form";
@@ -126,6 +127,13 @@ export default async function SettingsPage() {
           Sanctions &amp; PEP screening
         </h2>
         <SanctionsPanel />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
+          Data residency
+        </h2>
+        <DataResidencyPanel isAdmin={session.role === "admin"} />
       </section>
     </div>
   );

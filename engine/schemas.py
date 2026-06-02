@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -787,3 +787,28 @@ class UserCreatedOut(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(min_length=12, description="Minimum 12 characters.")
+
+
+# ----- Data residency attestation -----
+
+class AttestationIn(BaseModel):
+    data_region: str = Field(min_length=1)  # where data resides, e.g. "Australia (Sydney)"
+    hosting_provider: Optional[str] = None
+    cross_border: bool = False
+    dpa_in_place: bool = False
+    approved_by_name: Optional[str] = None
+    attested_on: Optional[str] = None  # ISO date
+    notes: Optional[str] = None
+
+
+class AttestationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    data_region: str
+    hosting_provider: Optional[str] = None
+    cross_border: bool
+    dpa_in_place: bool
+    approved_by_name: Optional[str] = None
+    attested_on: Optional[date] = None
+    notes: Optional[str] = None
+    updated_at: datetime

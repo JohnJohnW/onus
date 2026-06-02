@@ -589,6 +589,40 @@ def test_audit_log_export_is_csv(client):
     assert res.text.splitlines()[0] == "timestamp_utc,action,entity_type,entity_id,actor"
 
 
+def test_data_residency_attestation_flow(client):
+    """Admin can record a data-residency attestation; a member cannot (admin-gated); and
+    another firm cannot see it (RLS)."""
+    _, atoken = _signup(client, "Attestation Firm")
+    ah = {"Authorization": f"Bearer {atoken}"}
+    assert client.get("/attestation", headers=ah).json() is None
+    put = client.put(
+        "/attestation",
+        json={"data_region": "Australia (Sydney)", "dpa_in_place": True},
+        headers=ah,
+    )
+    assert put.status_code == 200, put.text
+    assert client.get("/attestation", headers=ah).json()["data_region"] == "Australia (Sydney)"
+
+    created = client.post(
+        "/firms/users",
+        json={"full_name": "M", "email": f"attm_{uuid.uuid4().hex[:8]}@test.local", "role": "member"},
+        headers=ah,
+    )
+    temp = created.json()["temporary_password"]
+    mtok = client.post(
+        "/auth/login", json={"email": created.json()["user"]["email"], "password": temp}
+    ).json()["access_token"]
+    assert (
+        client.put(
+            "/attestation", json={"data_region": "x"}, headers={"Authorization": f"Bearer {mtok}"}
+        ).status_code
+        == 403
+    )
+
+    _, btoken = _signup(client, "Other Attestation Firm")
+    assert client.get("/attestation", headers={"Authorization": f"Bearer {btoken}"}).json() is None
+
+
 def test_evaluation_report_resubmit_is_audited(client):
     """Resubmitting an evaluation report replaces the prior one; the supersession must be
     recorded in the immutable audit log even though the old report is not versioned."""

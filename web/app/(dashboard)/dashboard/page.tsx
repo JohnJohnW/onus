@@ -64,15 +64,37 @@ async function getFirmName(token: string): Promise<string | null> {
   }
 }
 
+type Attestation = { data_region: string; attested_on: string | null } | null;
+
+async function getAttestation(token: string): Promise<Attestation> {
+  try {
+    const res = await fetch(`${engineUrl}/attestation`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    return res.ok ? ((await res.json()) as Attestation) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function DashboardPage() {
   const session = await auth();
   const token = session?.access_token;
   const firstName = (session?.user?.name ?? "").trim().split(" ")[0] || "there";
 
-  const [summary, firmName] = await Promise.all([
+  const [summary, firmName, attestation] = await Promise.all([
     token ? getSummary(token) : Promise.resolve(null),
     token ? getFirmName(token) : Promise.resolve(null),
+    token ? getAttestation(token) : Promise.resolve(null),
   ]);
+
+  // Nudge the firm to record (or refresh) its data-residency attestation. Stale = over a year old.
+  let attestationNeedsAttention = !attestation || !attestation.attested_on;
+  if (attestation?.attested_on) {
+    const ageDays = (Date.now() - new Date(attestation.attested_on).getTime()) / 86_400_000;
+    if (ageDays > 365) attestationNeedsAttention = true;
+  }
 
   const rating = summary?.firm_risk_rating ?? "unassessed";
   const actions = summary?.pending_actions ?? [];
@@ -117,6 +139,19 @@ export default async function DashboardPage() {
             </>
           )}
           See upcoming deadlines below.
+        </div>
+      )}
+
+      {attestationNeedsAttention && (
+        <div className="mb-8 rounded-lg border border-neutral-700 bg-neutral-800/40 p-4 text-sm text-neutral-300">
+          <span className="font-medium">Data residency: </span>
+          {attestation
+            ? "Your data-residency attestation is over a year old."
+            : "No data-residency attestation is on record."}{" "}
+          <Link href="/settings" className="underline underline-offset-2 hover:text-white">
+            Record it in Settings
+          </Link>{" "}
+          to document where your firm&apos;s data is hosted and the governance sign-off.
         </div>
       )}
 

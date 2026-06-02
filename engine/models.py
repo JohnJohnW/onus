@@ -744,3 +744,26 @@ class Document(Base):
     storage_key = Column(String, nullable=False)  # generated id within the firm's store
     uploaded_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class DataResidencyAttestation(Base):
+    """A firm's attestation of where its data is hosted and the governance sign-off for
+    that choice (see the data-residency guidance in the README). One row per firm,
+    upserted. The dashboard nudges the firm when it is missing or stale."""
+
+    __tablename__ = "data_residency_attestations"
+    __table_args__ = (UniqueConstraint("firm_id", name="uq_data_residency_attestations_firm"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id", ondelete="CASCADE"), nullable=False)
+    data_region = Column(String, nullable=False)  # where data resides, e.g. "Australia (Sydney)"
+    hosting_provider = Column(String, nullable=True)
+    cross_border = Column(Boolean, nullable=False, server_default=text("false"))
+    dpa_in_place = Column(Boolean, nullable=False, server_default=text("false"))
+    approved_by_name = Column(String, nullable=True)  # governance sign-off
+    attested_on = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

@@ -9,6 +9,7 @@ import os
 from fastapi import FastAPI, Request
 
 from routers import alerts as alerts_router
+from routers import attestation as attestation_router
 from routers import audit as audit_router
 from routers import auth as auth_router
 from routers import clients as clients_router
@@ -84,6 +85,7 @@ app.include_router(dashboard_router.router, prefix="/dashboard", tags=["dashboar
 app.include_router(audit_router.router, prefix="/audit-log", tags=["audit"])
 app.include_router(sanctions_router.router, prefix="/sanctions", tags=["sanctions"])
 app.include_router(documents_router.router, prefix="/documents", tags=["documents"])
+app.include_router(attestation_router.router, prefix="/attestation", tags=["attestation"])
 
 
 @app.get("/health")
