@@ -255,6 +255,8 @@ def set_services(
             )
         )
     _set_step(db, firm_id, body.onboarding_step, 3)
+    db.flush()
+    assessment.overall_risk_rating = _recompute_overall(db, assessment.id)
     db.commit()
     return {"status": "ok", "onboarding_step": 3, "count": len(body.services)}
 
@@ -282,6 +284,8 @@ def set_customer_types(
             )
         )
     _set_step(db, firm_id, body.onboarding_step, 4)
+    db.flush()
+    assessment.overall_risk_rating = _recompute_overall(db, assessment.id)
     db.commit()
     return {"status": "ok", "onboarding_step": 4, "count": len(body.customer_types)}
 
@@ -309,6 +313,8 @@ def set_delivery_channels(
             )
         )
     _set_step(db, firm_id, body.onboarding_step, 5)
+    db.flush()
+    assessment.overall_risk_rating = _recompute_overall(db, assessment.id)
     db.commit()
     return {"status": "ok", "onboarding_step": 5, "count": len(body.channels)}
 
@@ -401,7 +407,11 @@ def set_methodology(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid methodology.")
     assessment = _get_or_create(db, current_user.firm_id)
     assessment.methodology = body.methodology
-    if body.complexity_tier in ("low", "medium", "high"):
+    if body.complexity_tier is not None:
+        if body.complexity_tier not in ("low", "medium", "high"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid complexity tier."
+            )
         assessment.complexity_tier = body.complexity_tier
     db.commit()
     fresh = _current(db, current_user.firm_id)

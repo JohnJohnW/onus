@@ -74,6 +74,8 @@ def _sanitize(text: str) -> str:
     for ch in text:
         cp = ord(ch)
         if cp < 0x80:
+            if cp < 0x20 and ch not in "\n\r\t":
+                continue  # drop stray ASCII control chars the model occasionally emits
             out.append(ch)
         elif cp in _SLOP_CHARS:
             out.append(_SLOP_CHARS[cp])

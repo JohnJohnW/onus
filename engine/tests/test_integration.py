@@ -443,3 +443,82 @@ def test_rls_fails_closed_without_firm_context():
             assert count == 0, f"{table} leaked {count} rows with no firm context"
     finally:
         db.close()
+
+
+def test_risk_overall_recomputed_on_services(client):
+    """Adding a high-risk service must lift the overall rating immediately. It used to
+    stay 'unassessed' because only the /countries endpoint recomputed the overall."""
+    _, token = _signup(client, "Recompute Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    assert (
+        client.post(
+            "/risk-assessment/services", json={"services": ["Trust establishment"]}, headers=h
+        ).status_code
+        == 200
+    )
+    cur = client.get("/risk-assessment/current", headers=h).json()
+    assert cur["overall_rating"] == "high", cur
+
+
+def test_cdd_rejects_unknown_matter_with_404(client):
+    """A non-existent matter id must be a clean 404, not a foreign-key violation 500."""
+    _, token = _signup(client, "CDD 404 Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    client_id = client.post(
+        "/clients", json={"type": "company_domestic", "display_name": "C"}, headers=h
+    ).json()["id"]
+    res = client.post(
+        f"/clients/{client_id}/cdd",
+        json={"matter_id": "00000000-0000-0000-0000-000000000000"},
+        headers=h,
+    )
+    assert res.status_code == 404, res.text
+
+
+def test_methodology_rejects_invalid_complexity_tier(client):
+    _, token = _signup(client, "Methodology Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    res = client.post(
+        "/risk-assessment/methodology",
+        json={"methodology": "impact_only", "complexity_tier": "nonsense"},
+        headers=h,
+    )
+    assert res.status_code == 400, res.text
+
+
+def test_policy_status_rejects_invalid_value(client):
+    _, token = _signup(client, "Policy Status Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    policy_id = client.get("/program", headers=h).json()["policies"][0]["id"]
+    res = client.patch(f"/program/policies/{policy_id}", json={"status": "nonsense"}, headers=h)
+    assert res.status_code == 400, res.text
+
+
+def test_program_records_admin_approver_role(client):
+    """When an admin approves, the s26P audit trail must record 'admin', not a fixed
+    'senior_manager' label."""
+    _, token = _signup(client, "Approver Role Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    res = client.post("/program/approve", json={}, headers=h)
+    assert res.status_code == 200, res.text
+    assert res.json()["approved_by_role"] == "admin", res.json()
+
+
+def test_signup_rejects_invalid_email(client):
+    res = client.post(
+        "/auth/signup",
+        json={"firm_name": "Bad Email", "full_name": "X", "email": "notanemail", "password": PASSWORD},
+    )
+    assert res.status_code == 422, res.text
+
+
+def test_onboarding_complete_is_idempotent(client):
+    """A repeated /onboarding/complete must not duplicate the standing deadlines."""
+    _, token = _signup(client, "Idempotent Onboarding Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    client.post("/risk-assessment/services", json={"services": ["Property transactions"]}, headers=h)
+    assert client.post("/onboarding/complete", headers=h).status_code == 200
+    first = len(client.get("/dashboard/summary", headers=h).json()["upcoming_deadlines"])
+    assert client.post("/onboarding/complete", headers=h).status_code == 200
+    second = len(client.get("/dashboard/summary", headers=h).json()["upcoming_deadlines"])
+    assert second == first, f"deadlines duplicated: {first} -> {second}"

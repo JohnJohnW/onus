@@ -39,6 +39,7 @@ def list_audit_log(
             id=r.id,
             action=r.action,
             entity_type=r.entity_type,
+            entity_id=r.entity_id,
             actor=emails.get(r.user_id),
             created_at=r.created_at,
         )

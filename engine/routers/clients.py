@@ -311,6 +311,14 @@ def record_cdd(
         c.source_of_funds = body.source_of_funds
     if body.source_of_wealth is not None:
         c.source_of_wealth = body.source_of_wealth
+    # Validate any referenced matter up-front: a non-existent or cross-tenant matter
+    # id must be a clean 404, not a foreign-key violation 500 raised at commit time.
+    matter = None
+    if body.matter_id is not None:
+        matter = db.get(Matter, body.matter_id)
+        if matter is None or matter.firm_id != current_user.firm_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Matter not found.")
+
     outcome = "fail" if sanctions else "pass"
     c.cdd_status = "blocked" if sanctions else "complete"
     now = datetime.now(timezone.utc)
@@ -327,12 +335,10 @@ def record_cdd(
             verified_by_user_id=current_user.id,
         )
     )
-    if body.matter_id is not None:
-        m = db.get(Matter, body.matter_id)
-        if m is not None and m.firm_id == current_user.firm_id:
-            m.cdd_gate_passed = outcome == "pass"
-            m.cdd_gate_basis = "initial_cdd" if outcome == "pass" else None
-            m.risk_rating = c.risk_rating
+    if matter is not None:
+        matter.cdd_gate_passed = outcome == "pass"
+        matter.cdd_gate_basis = "initial_cdd" if outcome == "pass" else None
+        matter.risk_rating = c.risk_rating
     db.add(
         AuditLog(
             firm_id=current_user.firm_id,
