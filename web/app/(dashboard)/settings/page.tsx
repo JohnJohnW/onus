@@ -123,7 +123,7 @@ export default async function SettingsPage() {
 
       <section>
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
-          Sanctions screening
+          Sanctions &amp; PEP screening
         </h2>
         <SanctionsPanel />
       </section>

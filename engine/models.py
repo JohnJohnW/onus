@@ -671,7 +671,8 @@ class SanctionsListVersion(Base):
     __tablename__ = "sanctions_list_versions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    source = Column(String, nullable=False)  # e.g. dfat_consolidated
+    list_type = Column(String, nullable=False, server_default="sanctions")  # sanctions | pep
+    source = Column(String, nullable=False)  # e.g. dfat_consolidated, pep_list
     origin = Column(String, nullable=False)  # auto_fetch | manual_upload
     fetched_at = Column(DateTime(timezone=True), nullable=False)
     content_hash = Column(String, nullable=False)
@@ -712,6 +713,7 @@ class SanctionsScreening(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False, index=True)
+    list_type = Column(String, nullable=False, server_default="sanctions")  # sanctions | pep
     subject_type = Column(String, nullable=True)  # client | party | adhoc
     subject_id = Column(UUID(as_uuid=True), nullable=True)
     query_name = Column(String, nullable=False)

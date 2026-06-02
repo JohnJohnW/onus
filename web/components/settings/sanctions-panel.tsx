@@ -1,18 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
 
 type Status = {
+  list_type: string;
   loaded: boolean;
-  source: string | null;
   origin: string | null;
   fetched_at: string | null;
   entry_count: number;
-  url_configured: boolean;
 };
 type Candidate = {
   reference: string | null;
@@ -23,57 +22,68 @@ type Candidate = {
   citizenship: string | null;
   listing_info: string | null;
 };
+type Result = { list_type: string; match_count: number; candidates: Candidate[] };
 
 const field =
   "rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-600";
 
+const LISTS: { key: string; label: string; canRefresh: boolean }[] = [
+  { key: "sanctions", label: "DFAT Consolidated List (sanctions)", canRefresh: true },
+  { key: "pep", label: "PEP list", canRefresh: false },
+];
+
 export function SanctionsPanel() {
-  const [status, setStatus] = useState<Status | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [statuses, setStatuses] = useState<Record<string, Status>>({});
+  const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [screening, setScreening] = useState(false);
-  const [candidates, setCandidates] = useState<Candidate[] | null>(null);
+  const [results, setResults] = useState<Result[] | null>(null);
 
-  async function loadStatus() {
-    const res = await fetch("/api/sanctions/status", { cache: "no-store" });
-    if (res.ok) setStatus(await res.json());
-  }
-  useEffect(() => {
-    loadStatus();
+  const loadStatuses = useCallback(async () => {
+    const next: Record<string, Status> = {};
+    for (const { key } of LISTS) {
+      const res = await fetch(`/api/sanctions/status?list_type=${key}`, { cache: "no-store" });
+      if (res.ok) next[key] = await res.json();
+    }
+    setStatuses(next);
   }, []);
+  useEffect(() => {
+    loadStatuses();
+  }, [loadStatuses]);
 
-  async function refresh() {
-    setBusy(true);
+  async function refresh(listType: string) {
+    setBusy(listType);
     setErr(null);
     setMsg(null);
-    const res = await fetch("/api/sanctions/refresh", { method: "POST" });
+    const res = await fetch(`/api/sanctions/refresh?list_type=${listType}`, { method: "POST" });
     const data = await res.json().catch(() => null);
-    setBusy(false);
+    setBusy(null);
     if (res.ok) {
-      setStatus(data);
-      setMsg("List refreshed from DFAT.");
+      setMsg("List refreshed.");
+      loadStatuses();
     } else {
       setErr((data && data.detail) || "Could not refresh. Upload the file manually instead.");
     }
   }
 
-  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function upload(e: React.ChangeEvent<HTMLInputElement>, listType: string) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setBusy(true);
+    setBusy(listType);
     setErr(null);
     setMsg(null);
     const fd = new FormData();
     fd.append("file", file);
+    fd.append("list_type", listType);
     const res = await fetch("/api/sanctions/upload", { method: "POST", body: fd });
     const data = await res.json().catch(() => null);
-    setBusy(false);
+    setBusy(null);
     e.target.value = "";
     if (res.ok) {
-      setStatus(data);
-      setMsg(`Loaded ${data.entry_count} entries from ${file.name}.`);
+      setMsg(`Loaded ${data.entry_count} entries.`);
+      loadStatuses();
     } else {
       setErr((data && data.detail) || "Could not load that file.");
     }
@@ -84,48 +94,55 @@ export function SanctionsPanel() {
     if (!query.trim()) return;
     setScreening(true);
     setErr(null);
-    setCandidates(null);
-    const res = await fetch("/api/sanctions/screen", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: query.trim() }),
-    });
-    const data = await res.json().catch(() => null);
+    const out: Result[] = [];
+    for (const { key } of LISTS) {
+      if (!statuses[key]?.loaded) continue;
+      const res = await fetch("/api/sanctions/screen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: query.trim(), list_type: key }),
+      });
+      if (res.ok) out.push(await res.json());
+    }
     setScreening(false);
-    if (res.ok) setCandidates(data.candidates ?? []);
-    else setErr((data && data.detail) || "Could not screen that name.");
+    setResults(out);
   }
+
+  const anyLoaded = LISTS.some((l) => statuses[l.key]?.loaded);
 
   return (
     <Card className="border-neutral-800 bg-neutral-900/50">
       <CardContent className="space-y-4 p-5 text-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-neutral-200">DFAT Consolidated List</p>
-            <p className="text-xs text-neutral-500">
-              {status?.loaded
-                ? `${status.entry_count} entries - loaded ${formatDate(status.fetched_at)}${
-                    status.origin ? ` (${status.origin.replace(/_/g, " ")})` : ""
-                  }`
-                : "No list loaded yet. Refresh from DFAT or upload the file."}
-            </p>
-          </div>
-          <Button size="sm" variant="outline" disabled={busy} onClick={refresh}>
-            {busy ? "Working..." : "Refresh from DFAT"}
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs text-neutral-400">Or upload the file (.xlsx / .csv):</span>
-          <input
-            type="file"
-            accept=".xlsx,.csv"
-            onChange={upload}
-            disabled={busy}
-            aria-label="Upload sanctions list file"
-            className="text-xs text-neutral-300 file:mr-2 file:rounded file:border-0 file:bg-neutral-800 file:px-2 file:py-1 file:text-neutral-200"
-          />
-        </div>
+        {LISTS.map(({ key, label, canRefresh }) => {
+          const s = statuses[key];
+          return (
+            <div key={key} className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-neutral-200">{label}</p>
+                <p className="text-xs text-neutral-500">
+                  {s?.loaded
+                    ? `${s.entry_count} entries - loaded ${formatDate(s.fetched_at)}`
+                    : "Not loaded yet."}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {canRefresh && (
+                  <Button size="sm" variant="outline" disabled={busy === key} onClick={() => refresh(key)}>
+                    {busy === key ? "Working..." : "Refresh"}
+                  </Button>
+                )}
+                <input
+                  type="file"
+                  accept=".xlsx,.csv"
+                  onChange={(e) => upload(e, key)}
+                  disabled={busy === key}
+                  aria-label={`Upload ${label}`}
+                  className="text-xs text-neutral-300 file:mr-2 file:rounded file:border-0 file:bg-neutral-800 file:px-2 file:py-1 file:text-neutral-200"
+                />
+              </div>
+            </div>
+          );
+        })}
 
         {msg && <p className="text-xs text-emerald-400">{msg}</p>}
         {err && <p className="text-xs text-red-400">{err}</p>}
@@ -134,44 +151,39 @@ export function SanctionsPanel() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Screen a name against the list..."
+            placeholder="Screen a name against the loaded lists..."
             aria-label="Name to screen"
             className={`${field} flex-1`}
           />
-          <Button size="sm" type="submit" disabled={screening || !status?.loaded}>
+          <Button size="sm" type="submit" disabled={screening || !anyLoaded}>
             {screening ? "Screening..." : "Screen"}
           </Button>
         </form>
 
-        {candidates &&
-          (candidates.length === 0 ? (
-            <p className="text-xs text-emerald-400">
-              No potential matches in the current list. This is a screening aid, not a legal
-              clearance - record your decision.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-xs text-amber-300">
-                {candidates.length} potential match{candidates.length === 1 ? "" : "es"} - review each
-                before providing the service:
-              </p>
-              {candidates.map((c, i) => (
-                <div
-                  key={`${c.reference ?? c.primary_name}-${i}`}
-                  className="rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-neutral-100">{c.primary_name}</span>
-                    <span className="text-xs text-amber-300">{Math.round(c.score * 100)}% match</span>
+        {results &&
+          results.map((r) => (
+            <div key={r.list_type} className="space-y-1.5">
+              <p className="text-xs uppercase tracking-wide text-neutral-500">{r.list_type}</p>
+              {r.match_count === 0 ? (
+                <p className="text-xs text-emerald-400">No potential matches (screening aid, not a clearance).</p>
+              ) : (
+                r.candidates.map((c, i) => (
+                  <div
+                    key={`${r.list_type}-${c.reference ?? c.primary_name}-${i}`}
+                    className="rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-neutral-100">{c.primary_name}</span>
+                      <span className="text-amber-300">{Math.round(c.score * 100)}%</span>
+                    </div>
+                    <p className="text-xs text-neutral-500">
+                      {c.entity_type}
+                      {c.citizenship ? ` - ${c.citizenship}` : ""}
+                      {c.listing_info ? ` - ${c.listing_info}` : ""}
+                    </p>
                   </div>
-                  <p className="text-xs text-neutral-500">
-                    {c.entity_type}
-                    {c.citizenship ? ` - ${c.citizenship}` : ""}
-                    {c.reference ? ` - ref ${c.reference}` : ""}
-                  </p>
-                  {c.listing_info && <p className="mt-1 text-xs text-neutral-600">{c.listing_info}</p>}
-                </div>
-              ))}
+                ))
+              )}
             </div>
           ))}
       </CardContent>
