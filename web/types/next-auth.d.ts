@@ -26,5 +26,7 @@ declare module "next-auth/jwt" {
     firm_id?: string;
     role?: string;
     access_token?: string;
+    /** Engine access-token expiry, epoch milliseconds; used to refresh proactively. */
+    access_token_expires?: number;
   }
 }
