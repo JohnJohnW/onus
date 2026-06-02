@@ -34,9 +34,9 @@ export type RetentionRecord = {
 const TYPE_LABELS: Record<string, string> = {
   smr: "Suspicious matter report",
   ttr: "Threshold transaction report",
-  ifti: "International funds transfer",
+  ifti: "International value transfer (IVTS)",
   annual_compliance: "Annual compliance report",
-  cross_border_bni: "Cross-border BNI report",
+  cross_border_bni: "Cross-border movement of monetary instruments",
 };
 const DEADLINE_LABELS: Record<string, string> = {
   smr_tf_24h: "24 hours (terrorism financing)",
@@ -261,12 +261,24 @@ export function ReportingView({
               onChange={(e) => setForm({ ...form, type: e.target.value })}
               className={`${field} w-full`}
             >
-              <option value="smr">Suspicious matter report (SMR)</option>
-              <option value="ttr">Threshold transaction report (TTR)</option>
-              <option value="ifti">International funds transfer (IFTI)</option>
-              <option value="annual_compliance">Annual compliance report</option>
-              <option value="cross_border_bni">Cross-border movement of BNIs</option>
+              <optgroup label="Routine reports">
+                <option value="smr">Suspicious matter report (SMR)</option>
+                <option value="ttr">Threshold transaction report (TTR)</option>
+                <option value="annual_compliance">Annual compliance report</option>
+              </optgroup>
+              <optgroup label="Only if you run a remittance/value-transfer business or move instruments across the border">
+                <option value="ifti">International value transfer (IVTS)</option>
+                <option value="cross_border_bni">Cross-border movement of monetary instruments</option>
+              </optgroup>
             </select>
+            {(form.type === "ifti" || form.type === "cross_border_bni") && (
+              <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-200">
+                Not a routine obligation for most law firms. IVTS reporting (Act s46) applies only if
+                you carry on a remittance or value-transfer business. Cross-border movement reports
+                (Act s53) apply to any person physically moving $10,000 or more in currency or bearer
+                negotiable instruments across the border. Skip these unless they apply to you.
+              </p>
+            )}
             {form.type === "smr" && (
               <>
                 <textarea
