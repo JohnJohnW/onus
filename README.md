@@ -196,9 +196,12 @@ Australian-hosted infrastructure is the simpler and more defensible path.
 **Production hardening checklist** (responsibilities beyond what the app itself enforces):
 
 - Inject `JWT_SECRET` and `NEXTAUTH_SECRET` from a secrets manager, not the dev `.env.local`;
-  rotate periodically. Give the `onus_app` role a managed password.
-- Terminate TLS and put a rate limiter / WAF in front of the API (the app does not yet
-  rate-limit authentication).
+  rotate periodically. Give the `onus_app` role a managed password. Set `ONUS_ENV=production`
+  so the engine refuses to start with a missing or weak `JWT_SECRET`.
+- Terminate TLS and put an edge rate limiter / WAF in front of the API. The engine already
+  applies security headers and a per-account failed-login throttle
+  (`AUTH_MAX_FAILED_LOGINS`), but an edge limiter that sees real client IPs is the primary
+  defence against volumetric and signup abuse.
 - Enable at-rest encryption on the database and the document volume (provider disk
   encryption is sufficient).
 - Keep the database and document volume in an Australian region, and confirm backups stay
@@ -220,8 +223,9 @@ Stated plainly, so a firm knows what Onus does and does not do:
 - **AI output is a draft.** Policy and SMR text is a starting point for human review; Onus
   forces plain ASCII and grounds prompts in the Act, but a person must read and approve every
   draft.
-- **Rate limiting, security headers and at-rest encryption are deployment responsibilities**
-  (see the hardening checklist), not built into the application.
+- **Edge rate limiting and at-rest encryption are deployment responsibilities** (see the
+  hardening checklist). The app ships security headers and a per-account login throttle, but
+  volumetric protection and disk encryption belong to the infrastructure layer.
 - **IVTS / international value-transfer reporting is gated as non-routine** - it applies only
   if the firm carries on a remittance / value-transfer business, which is not typical for a
   law firm.

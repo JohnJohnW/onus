@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from auth import throttle
 from auth.dependencies import get_current_user
 from auth.jwt import create_access_token
 from database import get_db, set_session_firm
@@ -67,8 +68,16 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)) -> AuthResponse:
 
 @router.post("/login", response_model=AuthResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
+    # Per-account brute-force backstop: too many recent failures locks the account out
+    # for a cooldown window, regardless of source IP (see auth/throttle.py).
+    if throttle.is_locked(body.email):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed login attempts. Please wait and try again.",
+        )
     user = db.scalar(select(User).where(User.email == body.email))
     if user is None or not verify_password(body.password, user.hashed_password):
+        throttle.record_failure(body.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
@@ -78,6 +87,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This account has been deactivated.",
         )
+    throttle.clear(body.email)
     return AuthResponse(access_token=_token_for(user), user=UserOut.model_validate(user))
 
 
