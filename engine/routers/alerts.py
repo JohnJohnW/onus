@@ -7,9 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from agent_log import record_agent_task
 from auth.dependencies import get_current_user
 from database import get_db
-from models import AuditLog, Client, MonitoringAlert, Report, ReportDecisionLog, User
+from models import AuditLog, Client, Matter, MonitoringAlert, Report, ReportDecisionLog, User
 from routers.clients import alert_out
 from routers.reports import _compute_due, _hash
 from schemas import (
@@ -18,6 +19,7 @@ from schemas import (
     AlertEscalateRequest,
     AlertOut,
     IndicatorOut,
+    ScanResultOut,
 )
 
 router = APIRouter()
@@ -200,3 +202,78 @@ def dismiss_alert(
     db.commit()
     db.refresh(a)
     return alert_out(a)
+
+
+# Automated monitoring rules. Each evaluates a real compliance risk condition over the
+# firm's own client/matter records (Onus has no transaction feed, so this is
+# risk-condition monitoring, not transaction monitoring). De-duplicated on open status.
+def _scan_rules(client: Client, has_matter: bool):
+    rules = []
+    if client.sanctions_hit and has_matter:
+        rules.append((
+            "sanctions_flagged_active", "high",
+            f"{client.display_name}: a sanctions-flagged client has an open matter. "
+            "You must not provide a designated service (Act s28).",
+        ))
+    if client.is_pep and client.pep_kind == "foreign" and client.cdd_status != "complete":
+        rules.append((
+            "foreign_pep_cdd_incomplete", "high",
+            f"{client.display_name}: foreign PEP without completed enhanced CDD (Rules s5-5).",
+        ))
+    if client.risk_rating == "high" and client.cdd_status != "complete":
+        rules.append((
+            "high_risk_cdd_incomplete", "medium",
+            f"{client.display_name}: high ML/TF-risk client without completed CDD.",
+        ))
+    return rules
+
+
+@router.post("/scan", response_model=ScanResultOut)
+def scan(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ScanResultOut:
+    """Run automated monitoring: evaluate compliance risk conditions across the firm's
+    clients and raise an alert for each new finding (Onus doing the watching)."""
+    firm_id = current_user.firm_id
+    clients = db.scalars(select(Client).where(Client.firm_id == firm_id)).all()
+    raised: list[MonitoringAlert] = []
+    for client in clients:
+        matter = db.scalar(
+            select(Matter).where(Matter.firm_id == firm_id, Matter.client_id == client.id)
+        )
+        for key, severity, narrative in _scan_rules(client, matter is not None):
+            existing = db.scalar(
+                select(MonitoringAlert).where(
+                    MonitoringAlert.firm_id == firm_id,
+                    MonitoringAlert.client_id == client.id,
+                    MonitoringAlert.indicator_key == key,
+                    MonitoringAlert.status == "open",
+                )
+            )
+            if existing is not None:
+                continue  # don't re-raise the same open finding
+            alert = MonitoringAlert(
+                firm_id=firm_id,
+                client_id=client.id,
+                matter_id=matter.id if (key == "sanctions_flagged_active" and matter) else None,
+                indicator_key=key,
+                indicator_group="automated_monitoring",
+                severity=severity,
+                narrative=narrative,
+                status="open",
+            )
+            db.add(alert)
+            db.flush()
+            raised.append(alert)
+    if raised:
+        record_agent_task(
+            db,
+            firm_id,
+            task_type="monitoring_scan",
+            summary=f"Monitoring scan raised {len(raised)} new alert{'' if len(raised) == 1 else 's'}",
+            human_action_required=True,
+            human_action_type="review_alerts",
+        )
+    db.commit()
+    return ScanResultOut(raised=len(raised), alerts=[alert_out(a) for a in raised])

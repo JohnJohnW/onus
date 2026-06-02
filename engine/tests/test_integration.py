@@ -339,6 +339,38 @@ def test_pep_screening_is_a_separate_list(client):
         db.close()
 
 
+def test_annual_compliance_summary(client):
+    _, token = _signup(client, "Annual Firm")
+    headers = {"Authorization": f"Bearer {token}"}
+    summary = client.get("/reports/annual-summary", headers=headers)
+    assert summary.status_code == 200, summary.text
+    body = summary.json()
+    assert "period_start" in body and "period_end" in body
+    assert body["smr_lodged"] == 0  # a fresh firm has nothing lodged yet
+    # Creating an annual report snapshots the summary into its payload.
+    rep = client.post("/reports", json={"type": "annual_compliance"}, headers=headers)
+    assert rep.status_code == 200
+
+
+def test_automated_monitoring_scan(client):
+    _, token = _signup(client, "Scan Firm")
+    headers = {"Authorization": f"Bearer {token}"}
+    cid = client.post(
+        "/clients",
+        json={"type": "company_domestic", "display_name": "Risky Co", "sanctions_hit": True},
+        headers=headers,
+    ).json()["id"]
+    client.post("/matters", json={"client_id": cid, "designated_service_key": "T6_1"}, headers=headers)
+
+    first = client.post("/alerts/scan", headers=headers).json()
+    assert first["raised"] >= 1
+    assert any(a["indicator_key"] == "sanctions_flagged_active" for a in first["alerts"])
+
+    # Running again raises nothing new (open findings are de-duplicated).
+    second = client.post("/alerts/scan", headers=headers).json()
+    assert second["raised"] == 0
+
+
 def test_rls_fails_closed_without_firm_context():
     """At the database, with no app.current_firm_id set, RLS returns zero firm-scoped
     rows even though the app connects as the table owner (FORCE ROW LEVEL SECURITY).

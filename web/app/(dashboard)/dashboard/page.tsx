@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CompleteDeadlineButton } from "@/components/dashboard/complete-deadline-button";
 import { Greeting } from "@/components/dashboard/greeting";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
+import { RunMonitoringButton } from "@/components/dashboard/run-monitoring-button";
 import { auth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { daysRemainingLabel, daysRemainingTone, formatDate, relativeTime } from "@/lib/format";
@@ -118,6 +119,13 @@ export default async function DashboardPage() {
           See upcoming deadlines below.
         </div>
       )}
+
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4">
+        <span className="text-sm text-neutral-400">
+          Onus monitors your firm for sanctions, PEP and CDD risk conditions.
+        </span>
+        <RunMonitoringButton />
+      </div>
 
       {/* Section 1 - Action required */}
       <Section title="Action required">
