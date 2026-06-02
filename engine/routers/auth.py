@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from auth.jwt import create_access_token
-from database import get_db
+from database import get_db, set_session_firm
 from models import Firm, FirmRiskState, GovernanceRole, User
 from schemas import AuthResponse, LoginRequest, SignupRequest, UserOut, UserWithFirm
 from security import hash_password, verify_password
@@ -35,6 +35,9 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)) -> AuthResponse:
     firm = Firm(name=body.firm_name)
     db.add(firm)
     db.flush()  # populate firm.id
+
+    # The firm now exists; pin RLS context so the firm-scoped inserts below pass.
+    set_session_firm(db, firm.id)
 
     user = User(
         firm_id=firm.id,

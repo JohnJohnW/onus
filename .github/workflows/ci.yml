@@ -33,6 +33,25 @@ jobs:
   engine-checks:
     name: Python checks
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_USER: onus
+          POSTGRES_PASSWORD: onus_local
+          POSTGRES_DB: onus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U onus -d onus"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Migrations run as the owner; the app (and tests) connect as the
+      # non-superuser onus_app role so row-level security actually applies.
+      ALEMBIC_DATABASE_URL: postgresql://onus:onus_local@localhost:5432/onus
+      DATABASE_URL: postgresql://onus_app:onus_local@localhost:5432/onus
     steps:
       - uses: actions/checkout@v5
 
@@ -46,16 +65,20 @@ jobs:
       - name: Install dependencies
         run: pip install -r engine/requirements.txt
 
+      - name: Run migrations (schema + onus_app role + RLS)
+        working-directory: engine
+        run: alembic upgrade head
+
       - name: Run pytest
         run: |
           set +e
           pytest engine/
           code=$?
           set -e
-          # pytest exit code 5 means "no tests collected" - expected for the
-          # initial scaffold. Treat it as success; propagate any real failure.
+          # pytest exit code 5 means "no tests collected". Treat it as success;
+          # propagate any real failure.
           if [ "$code" -eq 5 ]; then
-            echo "pytest: no tests collected yet - OK for initial scaffold."
+            echo "pytest: no tests collected - OK."
             exit 0
           fi
           exit "$code"

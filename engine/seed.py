@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
-from database import SessionLocal
+from database import SessionLocal, set_session_firm
 from models import (
     ComplianceDeadline,
     Firm,
@@ -34,6 +34,7 @@ def main(email: str) -> None:
             print(f"No user found with email {email!r}")
             return
         firm_id = user.firm_id
+        set_session_firm(db, firm_id)  # pin RLS context for the firm-scoped writes below
 
         for model in (ComplianceDeadline, RiskAssessment):
             for row in db.scalars(select(model).where(model.firm_id == firm_id)).all():

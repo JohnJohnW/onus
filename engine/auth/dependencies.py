@@ -5,11 +5,10 @@ import uuid
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from auth.jwt import decode_access_token
-from database import get_db
+from database import get_db, set_session_firm
 from models import User
 
 bearer_scheme = HTTPBearer(auto_error=True)
@@ -50,10 +49,7 @@ def get_current_user(
     if user is None or not user.is_active:
         raise cred_exc
 
-    # Pin the firm context for row-level security. is_local=true scopes it to the
-    # current transaction, so it never leaks across pooled connections.
-    db.execute(
-        text("SELECT set_config('app.current_firm_id', :firm_id, true)"),
-        {"firm_id": str(firm_id)},
-    )
+    # Pin the firm for row-level security on this session (current transaction now,
+    # and every later one via the after_begin listener in database.py).
+    set_session_firm(db, firm_id)
     return user
