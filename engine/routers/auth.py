@@ -87,6 +87,23 @@ def me(current_user: User = Depends(get_current_user)) -> UserWithFirm:
     return UserWithFirm.model_validate(current_user)
 
 
+@router.post("/refresh", response_model=AuthResponse)
+def refresh(current_user: User = Depends(get_current_user)) -> AuthResponse:
+    """Issue a fresh access token for the already-authenticated caller.
+
+    The web tier calls this in the background while the current token is still
+    valid (once it is past the halfway point of its life), so an active session is
+    never logged out mid-use. A fully expired, deactivated, or otherwise invalid
+    token is rejected by ``get_current_user``; the web tier then routes the user to
+    re-login. This deliberately requires a valid token - it is a rolling renewal,
+    not a way to revive a dead session.
+    """
+    return AuthResponse(
+        access_token=_token_for(current_user),
+        user=UserOut.model_validate(current_user),
+    )
+
+
 @router.post("/change-password")
 def change_password(
     body: ChangePasswordRequest,

@@ -59,6 +59,27 @@ def test_signup_login_me_survive_rls(client):
     assert client.post("/auth/login", json={"email": email, "password": PASSWORD}).status_code == 200
 
 
+def test_refresh_issues_a_valid_token_for_same_user(client):
+    """An authenticated caller can exchange a valid token for a fresh one that still
+    identifies the same user - this is what keeps an active session from lapsing
+    mid-use without a re-login."""
+    email, token = _signup(client, "Refresh Firm")
+    res = client.post("/auth/refresh", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200, res.text
+    new_token = res.json()["access_token"]
+    assert new_token
+    me = client.get("/auth/me", headers={"Authorization": f"Bearer {new_token}"})
+    assert me.status_code == 200
+    assert me.json()["email"] == email
+
+
+def test_refresh_rejects_unauthenticated(client):
+    """Refresh is a rolling renewal for a valid session, not a way to mint a token
+    without credentials."""
+    assert client.post("/auth/refresh").status_code in (401, 403)
+    assert client.post("/auth/refresh", headers={"Authorization": "Bearer not.a.token"}).status_code == 401
+
+
 def test_login_rejects_wrong_password(client):
     email, _ = _signup(client, "Integration Firm 2")
     res = client.post("/auth/login", json={"email": email, "password": "totally-wrong-1"})
