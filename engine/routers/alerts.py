@@ -125,6 +125,11 @@ def escalate_alert(
     if a.status == "escalated_to_smr":
         # Already escalated; never create a second SMR for the same alert.
         return alert_out(a)
+    if a.status == "dismissed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This alert was dismissed; it cannot be escalated without being re-opened.",
+        )
     now = datetime.now(timezone.utc)
     due, basis = _compute_due("smr", tf=body.tf, lpp=body.lpp_claimed, trigger=now, period_end=None)
     grounds = body.reasoning or a.narrative or _IND.get(a.indicator_key, ("", "", ""))[2]
@@ -179,6 +184,11 @@ def dismiss_alert(
     db: Session = Depends(get_db),
 ) -> AlertOut:
     a = _get_alert(db, current_user.firm_id, alert_id)
+    if a.status == "escalated_to_smr":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This alert was escalated to an SMR and cannot be dismissed.",
+        )
     a.status = "dismissed"
     db.add(
         ReportDecisionLog(

@@ -1,6 +1,7 @@
 """Dashboard endpoints - the principal's daily agent feed."""
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -191,7 +192,7 @@ def summary(
 
 @router.post("/deadlines/{deadline_id}/complete")
 def complete_deadline(
-    deadline_id: str,
+    deadline_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:

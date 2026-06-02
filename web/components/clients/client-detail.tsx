@@ -61,6 +61,7 @@ type ScreenResult = {
   match_count: number;
   candidates: ScreenCandidate[];
   noList?: boolean;
+  error?: boolean;
 };
 export type Indicator = { group: string; group_label: string; key: string; label: string };
 export type ClientDetail = {
@@ -90,6 +91,13 @@ function titleize(s: string): string {
 }
 
 function ScreenResultView({ result }: { result: ScreenResult }) {
+  if (result.error) {
+    return (
+      <p className="text-xs text-red-400">
+        Screening could not be completed. Please try again.
+      </p>
+    );
+  }
   if (result.noList) {
     return (
       <p className="text-xs text-amber-300">
@@ -348,7 +356,7 @@ export function ClientDetailView({
       }),
     });
     if (res.status === 409) return { query_name: name, match_count: 0, candidates: [], noList: true };
-    if (!res.ok) return null;
+    if (!res.ok) return { query_name: name, match_count: 0, candidates: [], error: true };
     return res.json();
   }
 

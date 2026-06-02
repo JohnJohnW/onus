@@ -281,6 +281,8 @@ def update_report(
         r.lpp_claimed = body.lpp_claimed
     if body.lpp_form_ref is not None:
         r.lpp_form_ref = body.lpp_form_ref
+    if body.status is not None and body.status not in ("draft", "ready", "lodged", "not_required"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid report status.")
     if body.status in ("draft", "ready", "lodged", "not_required"):
         r.status = body.status
         if body.status == "lodged":

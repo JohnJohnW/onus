@@ -247,6 +247,7 @@ export function ReportingView({
   const [formErr, setFormErr] = useState<string | null>(null);
   const [annual, setAnnual] = useState<AnnualSummary | null>(null);
   const [annualBusy, setAnnualBusy] = useState(false);
+  const [annualErr, setAnnualErr] = useState<string | null>(null);
   const [form, setForm] = useState({
     type: "smr",
     tf: false,
@@ -287,10 +288,16 @@ export function ReportingView({
 
   async function previewAnnual() {
     setAnnualBusy(true);
+    setAnnualErr(null);
     const qs = form.reporting_period_end ? `?period_end=${form.reporting_period_end}` : "";
     const res = await fetch(`/api/reports/annual-summary${qs}`, { cache: "no-store" });
     setAnnualBusy(false);
-    if (res.ok) setAnnual(await res.json());
+    if (res.ok) {
+      setAnnual(await res.json());
+    } else {
+      const d = await res.json().catch(() => null);
+      setAnnualErr((d && typeof d.detail === "string" && d.detail) || "Could not load the summary.");
+    }
   }
 
   return (
@@ -379,6 +386,7 @@ export function ReportingView({
                 <Button type="button" size="sm" variant="ghost" disabled={annualBusy} onClick={previewAnnual}>
                   {annualBusy ? "Loading..." : "Preview annual summary"}
                 </Button>
+                {annualErr && <p className="text-xs text-red-400">{annualErr}</p>}
                 {annual && (
                   <div className="space-y-1 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-xs text-neutral-300">
                     <p className="text-neutral-400">

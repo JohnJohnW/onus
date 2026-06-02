@@ -33,7 +33,7 @@ def rows_to_entries(rows: list[dict]) -> list[dict]:
     order: list[str] = []
     for raw in rows:
         norm = {(k or "").strip().lower(): ("" if v is None else str(v)) for k, v in raw.items()}
-        reference = _pick(norm, "reference", "id")
+        reference = _pick(norm, "reference")  # not "id": it substring-matches "name of individual"
         name = _pick(norm, "name of individual", "name")
         if not name and not reference:
             continue

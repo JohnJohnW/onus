@@ -371,6 +371,45 @@ def test_automated_monitoring_scan(client):
     assert second["raised"] == 0
 
 
+def test_alert_state_guards_and_report_status_validation(client):
+    _, token = _signup(client, "Guards Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    cid = client.post("/clients", json={"type": "company_domestic", "display_name": "Guard Co"}, headers=h).json()["id"]
+    al = client.post("/alerts", json={"client_id": cid, "indicator_key": "structuring", "severity": "high"}, headers=h)
+    assert al.status_code in (200, 201), al.text
+    aid = al.json()["id"]
+    esc = client.post(f"/alerts/{aid}/escalate", json={}, headers=h)
+    assert esc.status_code == 200
+    # An escalated alert cannot be dismissed (would orphan the SMR).
+    assert client.post(f"/alerts/{aid}/dismiss", json={}, headers=h).status_code == 409
+    # The SMR created by escalation rejects an invalid status.
+    smr_id = esc.json()["smr_report_id"]
+    assert client.patch(f"/reports/{smr_id}", json={"status": "cancelled"}, headers=h).status_code == 400
+
+
+def test_member_cannot_load_sanctions_list(client):
+    _, admin_token = _signup(client, "List Admin Firm")
+    ah = {"Authorization": f"Bearer {admin_token}"}
+    created = client.post(
+        "/firms/users",
+        json={"full_name": "Mem", "email": f"lm_{uuid.uuid4().hex[:8]}@test.local", "role": "member"},
+        headers=ah,
+    )
+    temp = created.json()["temporary_password"]
+    mtok = client.post(
+        "/auth/login", json={"email": created.json()["user"]["email"], "password": temp}
+    ).json()["access_token"]
+    mh = {"Authorization": f"Bearer {mtok}"}
+    # A member cannot overwrite the global sanctions list.
+    res = client.post(
+        "/sanctions/upload",
+        files={"file": ("x.csv", b"Reference,Name of Individual or Entity,Type\n1,X,Entity\n", "text/csv")},
+        data={"list_type": "sanctions"},
+        headers=mh,
+    )
+    assert res.status_code == 403
+
+
 def test_rls_fails_closed_without_firm_context():
     """At the database, with no app.current_firm_id set, RLS returns zero firm-scoped
     rows even though the app connects as the table owner (FORCE ROW LEVEL SECURITY).
