@@ -77,6 +77,10 @@ export default async function DashboardPage() {
   const actions = summary?.pending_actions ?? [];
   const activity = summary?.recent_agent_activity ?? [];
   const deadlines = summary?.upcoming_deadlines ?? [];
+  const overdue = deadlines.filter((d) => d.days_remaining !== null && d.days_remaining < 0);
+  const dueSoon = deadlines.filter(
+    (d) => d.days_remaining !== null && d.days_remaining >= 0 && d.days_remaining < 14
+  );
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -89,6 +93,31 @@ export default async function DashboardPage() {
           <span>risk profile</span>
         </div>
       </header>
+
+      {(overdue.length > 0 || dueSoon.length > 0) && (
+        <div
+          className={cn(
+            "mb-8 rounded-lg border p-4 text-sm",
+            overdue.length > 0
+              ? "border-red-500/30 bg-red-500/10 text-red-200"
+              : "border-amber-500/30 bg-amber-500/10 text-amber-200"
+          )}
+        >
+          <span className="font-medium">Reminders: </span>
+          {overdue.length > 0 && (
+            <>
+              {overdue.length} deadline{overdue.length === 1 ? "" : "s"} overdue
+              {dueSoon.length > 0 ? ", " : ". "}
+            </>
+          )}
+          {dueSoon.length > 0 && (
+            <>
+              {dueSoon.length} due within 14 days.{" "}
+            </>
+          )}
+          See upcoming deadlines below.
+        </div>
+      )}
 
       {/* Section 1 - Action required */}
       <Section title="Action required">
