@@ -3,7 +3,10 @@
 Schema is managed by Alembic migrations (run via `alembic upgrade head` on
 container startup - see docker-compose.yml), not create_all.
 """
-from fastapi import FastAPI
+import logging
+import os
+
+from fastapi import FastAPI, Request
 
 from routers import alerts as alerts_router
 from routers import audit as audit_router
@@ -20,7 +23,48 @@ from routers import reports as reports_router
 from routers import risk_assessment as risk_assessment_router
 from routers import sanctions as sanctions_router
 
+logger = logging.getLogger("onus")
+
+
+def _check_config() -> None:
+    """Fail fast (in production) or warn (in dev) on an obviously weak signing secret.
+
+    The dev default in .env.local is a long random value; production must inject its
+    own via a secrets manager. ONUS_ENV=production turns the warning into a hard stop.
+    """
+    secret = os.environ.get("JWT_SECRET", "")
+    env = os.environ.get("ONUS_ENV", "development").lower()
+    weak = len(secret) < 32 or secret.lower() in {"", "changeme", "secret", "dev", "devsecret", "please-change-me"}
+    if weak:
+        msg = "JWT_SECRET is missing or weak - set a long random value via your secrets manager."
+        if env == "production":
+            raise RuntimeError(f"Refusing to start in production: {msg}")
+        logger.warning("Onus config check: %s", msg)
+
+
+_check_config()
+
 app = FastAPI(title="Onus Engine", version="0.1.0")
+
+
+# Defence-in-depth security headers on every response. The engine normally sits behind
+# the web proxy, but these are cheap and protect any direct access. TLS/HSTS is the
+# responsibility of the reverse proxy / load balancer that terminates HTTPS in production.
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Cache-Control": "no-store",
+}
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for key, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(key, value)
+    return response
+
 
 app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
 app.include_router(firms_router.router, prefix="/firms", tags=["firms"])

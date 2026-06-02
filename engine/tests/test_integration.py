@@ -73,6 +73,23 @@ def test_refresh_issues_a_valid_token_for_same_user(client):
     assert me.json()["email"] == email
 
 
+def test_login_throttles_repeated_failures(client):
+    """Repeated wrong-password attempts on one account lock it out (429). The lock is by
+    account, so even the correct password is refused during the cooldown window."""
+    email, _ = _signup(client, "Throttle Firm")
+    codes = [
+        client.post(
+            "/auth/login", json={"email": email, "password": "definitely-the-wrong-1"}
+        ).status_code
+        for _ in range(12)
+    ]
+    assert 429 in codes, codes
+    # Locked by account: the correct password is also refused until the window passes.
+    assert (
+        client.post("/auth/login", json={"email": email, "password": PASSWORD}).status_code == 429
+    )
+
+
 def test_refresh_rejects_unauthenticated(client):
     """Refresh is a rolling renewal for a valid session, not a way to mint a token
     without credentials."""
