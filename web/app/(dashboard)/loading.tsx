@@ -1,14 +1,17 @@
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
-// Shown automatically during navigation to any dashboard page while the server renders
-// it (which can wait on the engine). Gives instant, subtle feedback so a slow page reads
-// as loading, not stuck.
+// Generic fallback skeleton for any dashboard page without its own loading.tsx.
 export default function Loading() {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <div className="flex items-center gap-2 text-sm text-neutral-500">
-        <Spinner className="h-4 w-4" />
-        <span>Loading...</span>
+    <div className="mx-auto max-w-3xl px-6 py-10">
+      <div className="mb-10 space-y-3">
+        <Skeleton className="h-7 w-56" />
+        <Skeleton className="h-4 w-72" />
+      </div>
+      <div className="space-y-4">
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
       </div>
     </div>
   );
