@@ -9,6 +9,7 @@ import { DocumentsSection } from "@/components/clients/documents-section";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 
 type Party = {
   id: string;
@@ -600,7 +601,14 @@ export function ClientDetailView({
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" disabled={busy || planning} onClick={prepareCdd}>
-                  {planning ? "Preparing..." : "Prepare CDD with Onus"}
+                  {planning ? (
+                    <>
+                      <Spinner className="mr-2" />
+                      Preparing...
+                    </>
+                  ) : (
+                    "Prepare CDD with Onus"
+                  )}
                 </Button>
                 <Button size="sm" disabled={busy} onClick={runCdd}>
                   {client.cdd_status === "complete" ? "Re-run CDD" : "Run CDD"}
