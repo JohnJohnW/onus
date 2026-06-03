@@ -621,6 +621,16 @@ def test_onboarding_complete_is_idempotent(client):
     assert second == first, f"deadlines duplicated: {first} -> {second}"
 
 
+def test_onboarding_complete_surfaces_documents(client):
+    """Completing onboarding records an activity entry surfacing the prepared documents."""
+    _, token = _signup(client, "Docs Ready Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    client.post("/risk-assessment/services", json={"services": ["Property transactions"]}, headers=h)
+    assert client.post("/onboarding/complete", headers=h).status_code == 200
+    activity = client.get("/dashboard/summary", headers=h).json().get("recent_agent_activity", [])
+    assert any("document" in a["summary"].lower() for a in activity), activity
+
+
 def test_countries_rejects_out_of_range_basel(client):
     _, token = _signup(client, "Basel Firm")
     h = {"Authorization": f"Bearer {token}"}

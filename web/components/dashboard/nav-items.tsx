@@ -1,6 +1,7 @@
 import {
   ClipboardCheck,
   FileBarChart,
+  FileText,
   Gauge,
   LayoutDashboard,
   ScrollText,
@@ -18,6 +19,7 @@ export const navItems: NavItem[] = [
   { label: "Clients and Matters", href: "/clients", icon: Users },
   { label: "Compliance Program", href: "/compliance-program", icon: ClipboardCheck },
   { label: "Reporting", href: "/reporting", icon: FileBarChart },
+  { label: "Documents", href: "/documents", icon: FileText },
   { label: "Evaluation", href: "/evaluation", icon: Gauge },
   { label: "Audit Trail", href: "/audit-trail", icon: ScrollText },
   { label: "Settings", href: "/settings", icon: Settings },
