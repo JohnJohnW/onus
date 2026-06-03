@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,6 +14,7 @@ from agent_log import record_agent_task
 from ai.drafting import draft_policy
 from auth.dependencies import get_current_user, require_approver
 from database import get_db
+from docgen import build_program_docx
 from models import (
     AmlProgram,
     AuditLog,
@@ -144,6 +146,22 @@ def get_program(
 ) -> ProgramOut:
     program = _get_or_create_program(db, current_user.firm_id)
     return _serialize(db, program, current_user.firm_id)
+
+
+@router.get("/document")
+def download_program_document(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Generate a submission-ready Word (.docx) AML/CTF compliance program document."""
+    program = _get_or_create_program(db, current_user.firm_id)
+    firm = db.get(Firm, current_user.firm_id)
+    content = build_program_docx(program, firm.name if firm else "Your firm")
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="aml-ctf-program.docx"'},
+    )
 
 
 @router.patch("/policies/{policy_id}", response_model=PolicyOut)

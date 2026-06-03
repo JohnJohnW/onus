@@ -213,6 +213,15 @@ def test_risk_assessment_docx_download(client):
     assert res.content[:2] == b"PK", res.content[:8]  # .docx is a zip archive
 
 
+def test_program_docx_download(client):
+    """The compliance program downloads as a real .docx."""
+    _, token = _signup(client, "Program Docx Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    res = client.get("/program/document", headers=h)
+    assert res.status_code == 200, res.text
+    assert res.content[:2] == b"PK", res.content[:8]
+
+
 def test_document_upload_list_download_and_isolation(client):
     """Upload an evidence file, list and download it, and confirm another firm can
     neither see nor download it; disallowed file types are rejected."""
