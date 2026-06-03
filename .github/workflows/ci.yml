@@ -54,6 +54,8 @@ jobs:
       DATABASE_URL: postgresql://onus_app:onus_local@localhost:5432/onus
       # Token-minting tests (signup/login) need a signing secret; this is a CI-only value.
       JWT_SECRET: ci-test-secret-not-for-production-0123456789abcdef
+      # Document storage writes to a real dir; the runner can't write /data, so use temp.
+      STORAGE_DIR: /tmp/onus-documents
     steps:
       - uses: actions/checkout@v5
 
