@@ -9,17 +9,20 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ai.drafting import draft_compliance_brief
 from auth.dependencies import get_current_user
 from database import get_db
 from models import (
     AgentTask,
     ComplianceDeadline,
+    Firm,
     FirmRiskState,
     GovernanceApproval,
     User,
 )
 from schemas import (
     AgentActivityOut,
+    BriefOut,
     DashboardSummary,
     PendingActionOut,
     UpcomingDeadlineOut,
@@ -188,6 +191,64 @@ def summary(
         recent_agent_activity=recent_activity,
         upcoming_deadlines=upcoming_deadlines,
     )
+
+
+@router.post("/brief", response_model=BriefOut)
+async def brief(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> BriefOut:
+    """Onus drafts a short plain-English brief: what it did, what needs you, what is coming
+    up. A summary of recent activity is sent to the AI to write the brief."""
+    firm_id = current_user.firm_id
+    now = datetime.now(timezone.utc)
+    week_ago = now - timedelta(days=7)
+    cutoff = now + timedelta(days=ACTION_WINDOW_DAYS)
+    firm = db.get(Firm, firm_id)
+
+    did_rows = db.scalars(
+        select(AgentTask)
+        .where(AgentTask.firm_id == firm_id, AgentTask.created_at >= week_ago)
+        .order_by(AgentTask.created_at.desc())
+        .limit(15)
+    ).all()
+    did = [_task_summary(t) for t in did_rows]
+
+    approvals = db.scalars(
+        select(GovernanceApproval).where(
+            GovernanceApproval.firm_id == firm_id,
+            GovernanceApproval.status == "pending",
+            GovernanceApproval.due_at.is_not(None),
+            GovernanceApproval.due_at <= cutoff,
+        )
+    ).all()
+    action_deadlines = db.scalars(
+        select(ComplianceDeadline).where(
+            ComplianceDeadline.firm_id == firm_id,
+            ComplianceDeadline.status == "pending",
+            ComplianceDeadline.due_at <= cutoff,
+        )
+    ).all()
+    needs = [a.title for a in approvals] + [
+        _deadline_label(d.deadline_type) for d in action_deadlines
+    ]
+
+    upcoming_rows = db.scalars(
+        select(ComplianceDeadline)
+        .where(ComplianceDeadline.firm_id == firm_id, ComplianceDeadline.status == "pending")
+        .order_by(ComplianceDeadline.due_at.asc())
+        .limit(5)
+    ).all()
+    deadlines = [
+        f"{_deadline_label(d.deadline_type)} (due {d.due_at.date()})"
+        for d in upcoming_rows
+        if d.due_at
+    ]
+
+    text = await draft_compliance_brief(
+        firm_name=firm.name if firm else None, did=did, needs=needs, deadlines=deadlines
+    )
+    return BriefOut(brief=text)
 
 
 @router.post("/deadlines/{deadline_id}/complete")

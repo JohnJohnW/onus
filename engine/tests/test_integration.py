@@ -651,6 +651,16 @@ def test_onboarding_complete_is_idempotent(client):
     assert second == first, f"deadlines duplicated: {first} -> {second}"
 
 
+def test_dashboard_brief(client, monkeypatch):
+    """Onus drafts a plain-English brief from recent activity / actions / deadlines."""
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    _, token = _signup(client, "Brief Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    res = client.post("/dashboard/brief", headers=h)
+    assert res.status_code == 200, res.text
+    assert res.json()["brief"]
+
+
 def test_onboarding_complete_surfaces_documents(client):
     """Completing onboarding records an activity entry surfacing the prepared documents."""
     _, token = _signup(client, "Docs Ready Firm")
