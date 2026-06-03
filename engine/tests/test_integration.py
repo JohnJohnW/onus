@@ -162,6 +162,22 @@ def test_matter_classification_populates_agent_feed(client, monkeypatch):
     assert any("matter" in a["summary"].lower() for a in activity), activity
 
 
+def test_risk_summary_draft_populates_agent_feed(client, monkeypatch):
+    """Onus drafts the risk-assessment summary (mock AI), saves it as a draft, and records
+    an AgentTask in the activity feed. It must not approve the assessment."""
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    _, token = _signup(client, "Risk Draft Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    client.post("/risk-assessment/services", json={"services": ["Property transactions"]}, headers=h)
+    res = client.post("/risk-assessment/draft-summary", headers=h)
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["summary"], body
+    assert body["status"] == "draft"  # a draft - Onus did not approve it
+    activity = client.get("/dashboard/summary", headers=h).json().get("recent_agent_activity", [])
+    assert any("risk" in a["summary"].lower() for a in activity), activity
+
+
 def test_document_upload_list_download_and_isolation(client):
     """Upload an evidence file, list and download it, and confirm another firm can
     neither see nor download it; disallowed file types are rejected."""

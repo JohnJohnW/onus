@@ -71,6 +71,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
   const [error, setError] = useState("");
   const [changeRequested, setChangeRequested] = useState(false);
   const [updateNote, setUpdateNote] = useState(false);
+  const [drafting, setDrafting] = useState(false);
 
   async function approve() {
     setSubmitting(true);
@@ -96,6 +97,18 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
     }
     setChangeRequested(true);
     setReviewing(false);
+    router.refresh();
+  }
+
+  async function draftSummary() {
+    setDrafting(true);
+    setError("");
+    const res = await fetch("/api/risk-assessment/draft-summary", { method: "POST" });
+    setDrafting(false);
+    if (!res.ok) {
+      setError("Could not draft the summary. Please try again.");
+      return;
+    }
     router.refresh();
   }
 
@@ -184,6 +197,18 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
             </div>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-neutral-300">{assessment.summary}</p>
+          {isDraft && (
+            <div className="mt-4">
+              <Button variant="outline" size="sm" onClick={draftSummary} disabled={drafting}>
+                {drafting ? "Drafting..." : "Draft summary with Onus"}
+              </Button>
+              <p className="mt-1.5 text-xs text-neutral-500">
+                Onus drafts this summary for {assessment.senior_manager_name} to review. It never
+                approves the assessment.
+              </p>
+              {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
             <span>
               Method:{" "}

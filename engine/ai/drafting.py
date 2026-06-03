@@ -123,3 +123,45 @@ async def draft_smr_narrative(
     )
     text = await get_ai_provider().complete(prompt, system=_SYSTEM)
     return _sanitize(text) + DISCLAIMER
+
+
+def _fmt_factors(label: str, items: list[tuple[str, str]]) -> str:
+    if not items:
+        return f"{label}: none recorded."
+    joined = "; ".join(f"{name} ({rating})" for name, rating in items)
+    return f"{label}: {joined}."
+
+
+async def draft_risk_assessment_summary(
+    *,
+    firm_name: Optional[str],
+    overall_rating: Optional[str],
+    services: list[tuple[str, str]],
+    customer_types: list[tuple[str, str]],
+    channels: list[tuple[str, str]],
+    countries: list[tuple[str, str]],
+    pf_rating: Optional[str],
+) -> str:
+    """Draft the overall narrative of a firm's AML/CTF risk assessment from its assessed
+    factors. A draft for the senior manager to review - Onus never approves the
+    assessment."""
+    lines = [
+        _fmt_factors("Designated services", services),
+        _fmt_factors("Customer types", customer_types),
+        _fmt_factors("Delivery channels", channels),
+        _fmt_factors("Countries", countries),
+        f"Proliferation financing: {pf_rating or 'not yet assessed'}.",
+    ]
+    prompt = (
+        "Draft the overall summary of a firm's AML/CTF risk assessment, for the senior "
+        "manager to review before approving. "
+        f"Firm: {firm_name or 'the firm'}. Overall ML/TF risk rating: "
+        f"{overall_rating or 'not yet rated'}. The assessed factors and their inherent "
+        "ratings are:\n"
+        + "\n".join(f"- {line}" for line in lines)
+        + "\n\nExplain in plain English why the overall rating is what it is, which "
+        "factors drive it, and what that means in practice for the firm. 4-7 sentences. "
+        "Do not invent factors beyond those listed. No heading - just the summary text."
+    )
+    text = await get_ai_provider().complete(prompt, system=_SYSTEM)
+    return _sanitize(text) + DISCLAIMER
