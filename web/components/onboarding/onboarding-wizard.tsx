@@ -96,12 +96,19 @@ function CheckList({
   );
 }
 
-export function OnboardingWizard({ initialStep = 0 }: { initialStep?: number }) {
+export function OnboardingWizard({
+  initialStep = 0,
+  initialFirmName = "",
+}: {
+  initialStep?: number;
+  initialFirmName?: string;
+}) {
   const router = useRouter();
   const [step, setStep] = useState(Math.min(Math.max(initialStep, 0), STEP_TITLES.length - 1));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const [firmName, setFirmName] = useState(initialFirmName);
   const [abn, setAbn] = useState("");
   const [firmSize, setFirmSize] = useState("");
   const [areas, setAreas] = useState<string[]>([]);
@@ -133,7 +140,18 @@ export function OnboardingWizard({ initialStep = 0 }: { initialStep?: number }) 
 
   async function next() {
     let ok = false;
-    if (step === 0) ok = await post("firm_details", { abn, firm_size: firmSize, practice_areas: areas });
+    if (step === 0) {
+      if (!firmName.trim()) {
+        setError("Enter your firm name.");
+        return;
+      }
+      ok = await post("firm_details", {
+        firm_name: firmName.trim(),
+        abn,
+        firm_size: firmSize,
+        practice_areas: areas,
+      });
+    }
     else if (step === 1) ok = await post("governance", {});
     else if (step === 2) ok = await post("services", { services });
     else if (step === 3) ok = await post("customer_types", { customer_types: customers });
@@ -175,6 +193,16 @@ export function OnboardingWizard({ initialStep = 0 }: { initialStep?: number }) 
       <div className="mt-6 space-y-4">
         {step === 0 && (
           <>
+            <div>
+              <label htmlFor="firmName" className={label}>Firm name</label>
+              <input
+                id="firmName"
+                value={firmName}
+                onChange={(e) => setFirmName(e.target.value)}
+                className={field}
+                placeholder="Your firm's name"
+              />
+            </div>
             <div>
               <label htmlFor="abn" className={label}>ABN</label>
               <input id="abn" value={abn} onChange={(e) => setAbn(e.target.value)} className={field} placeholder="11 digits" />

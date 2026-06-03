@@ -13,6 +13,7 @@ export default async function OnboardingPage() {
 
   let completed = false;
   let initialStep = 0;
+  let initialFirmName = "";
   try {
     const res = await fetch(`${engineUrl}/auth/me`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
@@ -22,6 +23,7 @@ export default async function OnboardingPage() {
       const me = await res.json();
       completed = me?.firm?.onboarding_completed === true;
       initialStep = me?.firm?.onboarding_step ?? 0;
+      initialFirmName = me?.firm?.name ?? "";
     }
   } catch {
     // fall through and show the wizard from the start
@@ -33,7 +35,7 @@ export default async function OnboardingPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100">
-      <OnboardingWizard initialStep={initialStep} />
+      <OnboardingWizard initialStep={initialStep} initialFirmName={initialFirmName} />
     </main>
   );
 }
