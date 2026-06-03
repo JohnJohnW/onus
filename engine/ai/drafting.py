@@ -377,3 +377,37 @@ async def extract_identity(*, file_bytes: bytes, filename: str, content_type: st
     else:
         text = "Onus could not extract identity details from this document. Review it manually."
     return ident, _sanitize(text) + DISCLAIMER
+
+
+async def draft_review_note(
+    *,
+    firm_name: Optional[str],
+    overall_rating: Optional[str],
+    last_approved_on: Optional[str],
+    services: list[tuple[str, str]],
+    customer_types: list[tuple[str, str]],
+    channels: list[tuple[str, str]],
+    countries: list[tuple[str, str]],
+    pf_rating: Optional[str],
+) -> str:
+    """Draft a periodic-review note: current picture + what to check since last approval."""
+    since = f" (last approved {last_approved_on})" if last_approved_on else " (no prior approval on record)"
+    lines = [
+        _fmt_factors("Designated services", services),
+        _fmt_factors("Customer types", customer_types),
+        _fmt_factors("Delivery channels", channels),
+        _fmt_factors("Countries", countries),
+        f"Proliferation financing: {pf_rating or 'not yet assessed'}.",
+    ]
+    prompt = (
+        f"Write a short periodic-review note for {firm_name or 'the firm'}'s AML/CTF risk "
+        f"assessment, as of today{since}. State the current overall rating "
+        f"({overall_rating or 'not yet rated'}) and its main drivers, then list what the firm "
+        "should check or update since the last approval (have the designated services, client "
+        "types, delivery channels, or countries changed?). End with a clear recommendation: "
+        "confirm as-is, or update specific factors. 4 to 6 sentences, plain English, no "
+        "preamble. Base it only on the facts below.\n\n"
+        + "\n".join(f"- {line}" for line in lines)
+    )
+    text = await get_ai_provider().complete(prompt, system=_SYSTEM)
+    return _sanitize(text) + DISCLAIMER

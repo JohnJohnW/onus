@@ -73,6 +73,8 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
   const [changeRequested, setChangeRequested] = useState(false);
   const [updateNote, setUpdateNote] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  const [runningReview, setRunningReview] = useState(false);
+  const [reviewNote, setReviewNote] = useState<string | null>(null);
 
   async function approve() {
     setSubmitting(true);
@@ -111,6 +113,19 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
       return;
     }
     router.refresh();
+  }
+
+  async function runReview() {
+    setRunningReview(true);
+    setError("");
+    const res = await fetch("/api/risk-assessment/review", { method: "POST" });
+    setRunningReview(false);
+    if (!res.ok) {
+      setError("Could not run the review. Please try again.");
+      return;
+    }
+    const d = await res.json();
+    setReviewNote(d.note ?? null);
   }
 
   const indicator = INDICATOR[assessment.overall_rating?.toLowerCase()] ?? INDICATOR.unassessed;
@@ -240,6 +255,16 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
             >
               {isDraft ? "Review risk assessment" : "Update risk assessment"}
             </Button>
+            <Button variant="outline" size="sm" onClick={runReview} disabled={runningReview}>
+              {runningReview ? (
+                <>
+                  <Spinner className="mr-2" />
+                  Reviewing...
+                </>
+              ) : (
+                "Run a review with Onus"
+              )}
+            </Button>
             <Button asChild variant="outline" size="sm">
               <a href="/api/risk-assessment/document">Download (Word)</a>
             </Button>
@@ -248,6 +273,14 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
             <p className="mt-2 text-xs text-neutral-500">
               Re-assessment will be available here soon.
             </p>
+          )}
+          {reviewNote && (
+            <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-sm">
+              <p className="whitespace-pre-wrap text-neutral-300">{reviewNote}</p>
+              <p className="mt-2 text-xs text-neutral-600">
+                A review note from Onus. Approving the assessment discharges the review.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
