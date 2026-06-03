@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,11 +16,13 @@ from ai.drafting import draft_smr_narrative
 from auth.dependencies import get_current_user
 from deadlines import complete_deadlines
 from database import get_db
+from docgen import build_smr_docx
 from models import (
     AmlProgram,
     AuditLog,
     Client,
     ComplianceDeadline,
+    Firm,
     FirmRiskState,
     IndependentEvaluation,
     Matter,
@@ -186,6 +189,37 @@ def list_reports(
         select(Report).where(Report.firm_id == current_user.firm_id).order_by(Report.created_at.desc())
     ).all()
     return [_report_out(r) for r in rows]
+
+
+@router.get("/{report_id}/document")
+def download_report_document(
+    report_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Generate an SMR's prepared content as a submission-ready Word (.docx) document."""
+    r = db.get(Report, report_id)
+    if r is None or r.firm_id != current_user.firm_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+    if r.type != "smr":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document generation is available for suspicious matter reports.",
+        )
+    firm = db.get(Firm, current_user.firm_id)
+    client = db.get(Client, r.related_client_id) if r.related_client_id else None
+    matter = db.get(Matter, r.related_matter_id) if r.related_matter_id else None
+    content = build_smr_docx(
+        report=r,
+        firm_name=firm.name if firm else "Your firm",
+        client_name=client.display_name if client else "Not specified",
+        matter_desc=(matter.description or matter.designated_service_key) if matter else "Not specified",
+    )
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="suspicious-matter-report.docx"'},
+    )
 
 
 @router.post("", response_model=ReportOut)

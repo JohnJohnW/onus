@@ -222,6 +222,26 @@ def test_program_docx_download(client):
     assert res.content[:2] == b"PK", res.content[:8]
 
 
+def test_smr_docx_download(client):
+    """An SMR downloads as a real .docx with the prepared content."""
+    _, token = _signup(client, "SMR Docx Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    rid = client.post(
+        "/reports",
+        json={
+            "type": "smr",
+            "payload": {
+                "indicator": "structuring",
+                "grounds_for_suspicion": "Cash deposits just under the threshold.",
+            },
+        },
+        headers=h,
+    ).json()["id"]
+    res = client.get(f"/reports/{rid}/document", headers=h)
+    assert res.status_code == 200, res.text
+    assert res.content[:2] == b"PK", res.content[:8]
+
+
 def test_document_upload_list_download_and_isolation(client):
     """Upload an evidence file, list and download it, and confirm another firm can
     neither see nor download it; disallowed file types are rejected."""
