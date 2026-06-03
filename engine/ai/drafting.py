@@ -315,3 +315,65 @@ async def draft_compliance_brief(
     )
     text = await get_ai_provider().complete(prompt, system=_SYSTEM)
     return _sanitize(text) + DISCLAIMER
+
+
+_IDENTITY_INSTRUCTION = (
+    "Read this identification document and extract the identity details. Return ONLY a JSON "
+    "object, no prose, with keys: full_name (string or null), date_of_birth (string or null), "
+    "document_type (string or null), document_number (string or null), expiry (string or null), "
+    "notes (string - flag anything expired, inconsistent, or unreadable). If you cannot read it, "
+    "set the fields to null and explain in notes."
+)
+
+
+def _parse_identity(text: str):
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        return None
+    try:
+        data = json.loads(text[start : end + 1])
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    def field(key: str):
+        value = data.get(key)
+        return str(value)[:200] if value not in (None, "") else None
+
+    return {
+        "full_name": field("full_name"),
+        "date_of_birth": field("date_of_birth"),
+        "document_type": field("document_type"),
+        "document_number": field("document_number"),
+        "expiry": field("expiry"),
+        "notes": field("notes"),
+    }
+
+
+async def extract_identity(*, file_bytes: bytes, filename: str, content_type: str):
+    """Extract identity details from an ID document as structured data plus a readable
+    summary for review. Returns (identity_dict_or_None, summary_text)."""
+    raw = await get_ai_provider().analyze_document(
+        file_bytes=file_bytes,
+        filename=filename,
+        content_type=content_type,
+        instruction=_IDENTITY_INSTRUCTION,
+        system=_SYSTEM,
+    )
+    ident = _parse_identity(raw)
+    if ident:
+        labels = [
+            ("Name", ident.get("full_name")),
+            ("Date of birth", ident.get("date_of_birth")),
+            ("Document", ident.get("document_type")),
+            ("Number", ident.get("document_number")),
+            ("Expiry", ident.get("expiry")),
+        ]
+        lines = [f"- {label}: {value}" for label, value in labels if value]
+        text = "Onus read this identification:\n" + "\n".join(lines)
+        if ident.get("notes"):
+            text += f"\n- Notes: {ident['notes']}"
+    else:
+        text = "Onus could not extract identity details from this document. Review it manually."
+    return ident, _sanitize(text) + DISCLAIMER
