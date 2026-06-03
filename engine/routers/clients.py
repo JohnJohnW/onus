@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from agent_log import record_agent_task
 from ai.classification import classify_matter
+from ai.drafting import draft_cdd_plan
 from auth.dependencies import get_current_user
 from database import get_db
 from models import AuditLog, CddCheck, Client, ClientParty, Matter, MonitoringAlert, User
@@ -17,6 +18,7 @@ from schemas import (
     AlertOut,
     CatalogueItem,
     CddCheckOut,
+    CddPlanOut,
     CddRequest,
     ClientCreate,
     ClientDetailOut,
@@ -352,6 +354,75 @@ def record_cdd(
     db.commit()
     db.refresh(c)
     return _detail(c)
+
+
+@router.post("/{client_id}/cdd-plan", response_model=CddPlanOut)
+async def prepare_cdd_plan(
+    client_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CddPlanOut:
+    """Ask Onus to prepare a CDD plan for this client: the required level, screening
+    status, and the steps to follow. A draft to act on - Onus never completes or signs
+    off CDD; the firm verifies identity and records the CDD itself."""
+    c = _get_client(db, current_user.firm_id, client_id)
+    foreign_pep = (c.is_pep and c.pep_kind == "foreign") or any(
+        p.is_pep and p.pep_kind == "foreign" for p in c.parties
+    )
+    risk_rating = "high" if foreign_pep else c.risk_rating
+    level, edd_reason = compute_cdd_level(risk_rating=risk_rating, foreign_pep=foreign_pep)
+    sanctions = c.sanctions_hit or any(p.sanctions_hit for p in c.parties)
+    is_pep = c.is_pep or any(p.is_pep for p in c.parties)
+    if sanctions:
+        screening_note = (
+            "A sanctions match is flagged: you must not act until it is resolved - "
+            "escalate and screen before any further step."
+        )
+    elif is_pep:
+        screening_note = "A PEP is flagged: apply enhanced PEP measures (source of funds and wealth)."
+    else:
+        screening_note = "No sanctions or PEP match is currently flagged - screen to confirm."
+    n = len(c.parties)
+    parties_note = (
+        f"{n} associated part{'y' if n == 1 else 'ies'} recorded (beneficial owners, controllers or agents)."
+        if n
+        else "No associated parties (beneficial owners or controllers) are recorded yet."
+    )
+    plan = await draft_cdd_plan(
+        client_name=c.display_name,
+        client_type=c.type,
+        level=level,
+        edd_reason=edd_reason,
+        screening_note=screening_note,
+        parties_note=parties_note,
+    )
+    db.add(
+        AuditLog(
+            firm_id=current_user.firm_id,
+            user_id=current_user.id,
+            action="cdd.plan_drafted",
+            entity_type="client",
+            entity_id=c.id,
+            after_state={"level": level},
+        )
+    )
+    record_agent_task(
+        db,
+        current_user.firm_id,
+        task_type="cdd_plan_drafted",
+        summary=f"Prepared a {level} CDD plan for {c.display_name}",
+        human_action_required=True,
+        human_action_type="verify_cdd",
+        input_state={"client_id": str(c.id)},
+    )
+    db.commit()
+    return CddPlanOut(
+        client_id=c.id,
+        level=level,
+        edd_reason=edd_reason,
+        screening_note=screening_note,
+        plan=plan,
+    )
 
 
 @matters_router.post("/classify", response_model=MatterClassifyOut)

@@ -165,3 +165,31 @@ async def draft_risk_assessment_summary(
     )
     text = await get_ai_provider().complete(prompt, system=_SYSTEM)
     return _sanitize(text) + DISCLAIMER
+
+
+async def draft_cdd_plan(
+    *,
+    client_name: Optional[str],
+    client_type: Optional[str],
+    level: str,
+    edd_reason: Optional[str],
+    screening_note: str,
+    parties_note: str,
+) -> str:
+    """Draft a customer due diligence plan for a client, for the firm to follow and
+    verify. A draft for human action - Onus never completes or signs off CDD itself."""
+    prompt = (
+        "Draft a customer due diligence (CDD) plan a small Australian law firm will follow "
+        "before acting for this client. "
+        f"Client: {client_name or 'the client'} (type: {client_type or 'unspecified'}). "
+        f"Required CDD level: {level}"
+        + (f" - {edd_reason}" if edd_reason else "")
+        + f". {screening_note} {parties_note} "
+        "List the identification and verification steps the firm must complete for this "
+        "client type and level: who to identify, what evidence to collect, beneficial "
+        "ownership and source-of-funds/wealth checks where relevant, and any extra steps "
+        "if the level is enhanced. Use a short, practical checklist. Do not invent "
+        "obligations beyond standard AML/CTF CDD; the firm must verify identity itself."
+    )
+    text = await get_ai_provider().complete(prompt, system=_SYSTEM)
+    return _sanitize(text) + DISCLAIMER

@@ -178,6 +178,27 @@ def test_risk_summary_draft_populates_agent_feed(client, monkeypatch):
     assert any("risk" in a["summary"].lower() for a in activity), activity
 
 
+def test_cdd_plan_drafted_by_onus(client, monkeypatch):
+    """Onus prepares a CDD plan (mock AI): returns the required level + a drafted plan,
+    records an AgentTask, and does not complete or sign off CDD."""
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    _, token = _signup(client, "CDD Plan Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    cid = client.post(
+        "/clients", json={"type": "company_domestic", "display_name": "Acme Pty Ltd"}, headers=h
+    ).json()["id"]
+    res = client.post(f"/clients/{cid}/cdd-plan", headers=h)
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["level"] in ("simplified", "standard", "enhanced")
+    assert body["plan"]
+    # Onus did not complete CDD - the client's CDD status is unchanged.
+    detail = client.get(f"/clients/{cid}", headers=h).json()
+    assert detail["cdd_status"] == "not_started", detail
+    activity = client.get("/dashboard/summary", headers=h).json().get("recent_agent_activity", [])
+    assert any("cdd" in a["summary"].lower() for a in activity), activity
+
+
 def test_document_upload_list_download_and_isolation(client):
     """Upload an evidence file, list and download it, and confirm another firm can
     neither see nor download it; disallowed file types are rejected."""

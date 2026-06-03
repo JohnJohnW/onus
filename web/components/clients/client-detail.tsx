@@ -321,6 +321,13 @@ export function ClientDetailView({
   const [partyPep, setPartyPep] = useState<ScreenResult | null>(null);
   const [screening, setScreening] = useState<null | "client" | "party">(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const [cddPlan, setCddPlan] = useState<{
+    level: string;
+    edd_reason: string | null;
+    screening_note: string;
+    plan: string;
+  } | null>(null);
   const latestCdd = client.cdd_checks[0];
 
   async function post(path: string, body: unknown) {
@@ -415,6 +422,19 @@ export function ClientDetailView({
 
   async function runCdd() {
     await post(`/api/clients/${client.id}/cdd`, { kyc_fields: { captured: true } });
+  }
+
+  async function prepareCdd() {
+    setPlanning(true);
+    setActionError(null);
+    const res = await fetch(`/api/clients/${client.id}/cdd-plan`, { method: "POST" });
+    setPlanning(false);
+    if (res.ok) {
+      setCddPlan(await res.json());
+    } else {
+      const data = await res.json().catch(() => null);
+      setActionError((data && data.detail) || "Could not prepare the CDD plan. Please try again.");
+    }
   }
 
   async function addParty(e: React.FormEvent) {
@@ -567,19 +587,40 @@ export function ClientDetailView({
           Customer due diligence
         </h2>
         <Card className="border-neutral-800 bg-neutral-900/50">
-          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
-            <div className="text-sm">
-              <p className="text-neutral-200">Status: {titleize(client.cdd_status)}</p>
-              {latestCdd && (
-                <p className="mt-1 text-xs text-neutral-500">
-                  {titleize(latestCdd.level)} CDD - {latestCdd.outcome}
-                  {latestCdd.edd_reason ? ` - ${latestCdd.edd_reason}` : ""}
-                </p>
-              )}
+          <CardContent className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="text-sm">
+                <p className="text-neutral-200">Status: {titleize(client.cdd_status)}</p>
+                {latestCdd && (
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {titleize(latestCdd.level)} CDD - {latestCdd.outcome}
+                    {latestCdd.edd_reason ? ` - ${latestCdd.edd_reason}` : ""}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" disabled={busy || planning} onClick={prepareCdd}>
+                  {planning ? "Preparing..." : "Prepare CDD with Onus"}
+                </Button>
+                <Button size="sm" disabled={busy} onClick={runCdd}>
+                  {client.cdd_status === "complete" ? "Re-run CDD" : "Run CDD"}
+                </Button>
+              </div>
             </div>
-            <Button size="sm" disabled={busy} onClick={runCdd}>
-              {client.cdd_status === "complete" ? "Re-run CDD" : "Run CDD"}
-            </Button>
+            {cddPlan && (
+              <div className="mt-4 rounded-md border border-neutral-800 bg-neutral-900 p-4 text-sm">
+                <p className="text-neutral-200">
+                  Required CDD level: <span className="capitalize">{cddPlan.level}</span>
+                </p>
+                {cddPlan.edd_reason && <p className="mt-1 text-xs text-amber-300">{cddPlan.edd_reason}</p>}
+                <p className="mt-1 text-xs text-neutral-400">{cddPlan.screening_note}</p>
+                <p className="mt-3 whitespace-pre-wrap text-neutral-300">{cddPlan.plan}</p>
+                <p className="mt-3 text-xs text-neutral-600">
+                  A plan for you to follow and verify. Onus does not complete or sign off CDD - record it
+                  above once done.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </section>

@@ -430,6 +430,14 @@ class CddCheckOut(BaseModel):
     created_at: datetime
 
 
+class CddPlanOut(BaseModel):
+    client_id: uuid.UUID
+    level: str
+    edd_reason: Optional[str] = None
+    screening_note: str
+    plan: str
+
+
 class MatterCreate(BaseModel):
     client_id: uuid.UUID
     designated_service_key: str
