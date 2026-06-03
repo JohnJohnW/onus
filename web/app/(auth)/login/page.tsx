@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 
+import { GoogleButton } from "@/components/auth/google-button";
 import { OnusMark } from "@/components/brand/onus-mark";
 
 export default function LoginPage() {
@@ -51,6 +52,7 @@ export default function LoginPage() {
             Your session expired. Please sign in again to continue.
           </p>
         )}
+        <GoogleButton callbackUrl="/dashboard" />
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="mb-1 block text-sm text-neutral-400">Email</label>

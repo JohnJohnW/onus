@@ -1,8 +1,11 @@
-"""Authentication endpoints: signup, login, and current user."""
+"""Authentication endpoints: signup, login, current user, refresh, and the SSO bridge."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+import os
+import secrets as _secrets
+
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from auth import throttle
@@ -14,6 +17,7 @@ from schemas import (
     AuthResponse,
     ChangePasswordRequest,
     LoginRequest,
+    OAuthBridgeRequest,
     SignupRequest,
     UserOut,
     UserWithFirm,
@@ -88,6 +92,58 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
             detail="This account has been deactivated.",
         )
     throttle.clear(body.email)
+    return AuthResponse(access_token=_token_for(user), user=UserOut.model_validate(user))
+
+
+def _default_firm_name(full_name, email: str) -> str:
+    base = (full_name or "").strip() or email.split("@")[0]
+    return f"{base}'s firm"
+
+
+@router.post("/oauth", response_model=AuthResponse)
+def oauth_bridge(
+    body: OAuthBridgeRequest,
+    x_internal_secret: str = Header(default=""),
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Exchange a verified OAuth identity (from the trusted web tier) for an access token.
+
+    The web tier authenticates the user with the OAuth provider (e.g. Google), then calls
+    this with the verified email. It is gated by a shared secret (OAUTH_BRIDGE_SECRET) so
+    only the web tier can mint tokens this way - it is NOT a public endpoint, and SSO is
+    disabled unless the secret is set. Finds the user by email, or creates a firm + admin
+    user for a new SSO identity (who then completes onboarding to set the real firm)."""
+    bridge_secret = os.environ.get("OAUTH_BRIDGE_SECRET", "")
+    if not bridge_secret or not _secrets.compare_digest(x_internal_secret, bridge_secret):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized.")
+
+    email = body.email.strip().lower()
+    user = db.scalar(select(User).where(func.lower(User.email) == email))
+    if user is not None:
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="This account has been deactivated."
+            )
+        return AuthResponse(access_token=_token_for(user), user=UserOut.model_validate(user))
+
+    # New SSO identity: create a firm + admin user with no usable password (SSO only).
+    firm = Firm(name=_default_firm_name(body.full_name, email))
+    db.add(firm)
+    db.flush()
+    set_session_firm(db, firm.id)
+    user = User(
+        firm_id=firm.id,
+        full_name=(body.full_name or email),
+        email=email,
+        hashed_password=hash_password(_secrets.token_urlsafe(32)),
+        role="admin",
+    )
+    db.add(user)
+    db.flush()
+    db.add(GovernanceRole(firm_id=firm.id, user_id=user.id, role="compliance_officer"))
+    db.add(FirmRiskState(firm_id=firm.id))
+    db.commit()
+    db.refresh(user)
     return AuthResponse(access_token=_token_for(user), user=UserOut.model_validate(user))
 
 
