@@ -1,0 +1,36 @@
+# Render Blueprint for the Onus engine (free demo deployment).
+# In Render: New + > Blueprint > pick this repo. It builds the production engine image
+# and runs migrations on start. Set the secret env vars (marked sync: false) in the
+# dashboard - see docs/deployment/DEMO.md. NOTE: the free plan sleeps after inactivity
+# and has an ephemeral disk (uploaded documents do not persist) - fine for a demo.
+services:
+  - type: web
+    name: onus-engine
+    runtime: docker
+    dockerfilePath: infrastructure/docker/engine.prod.Dockerfile
+    dockerContext: engine
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: ONUS_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: STORAGE_DIR
+        value: /data/documents
+      - key: AI_PROVIDER
+        value: anthropic
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-6
+      - key: AUTH_MAX_FAILED_LOGINS
+        value: "10"
+      # Secrets - set these in the Render dashboard (not committed):
+      - key: DATABASE_URL          # Neon onus_app connection string
+        sync: false
+      - key: ALEMBIC_DATABASE_URL  # Neon owner connection string
+        sync: false
+      - key: ONUS_APP_PASSWORD     # must match the password in DATABASE_URL
+        sync: false
+      - key: ANTHROPIC_API_KEY     # optional; AI drafting needs it
+        sync: false

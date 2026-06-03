@@ -198,6 +198,7 @@ database on US free tiers. Set `NEXT_PUBLIC_DEMO=true` on the web deployment to 
 persistent banner and a `/hosting` page that disclose the US hosting, explain the trade-offs
 versus an Australian deployment, and let visitors register interest (captured in the
 `demo_eois` table) in a properly hosted version. Do not put real client data in the demo.
+Step-by-step (Vercel + Render + Neon, all free): [`docs/deployment/DEMO.md`](docs/deployment/DEMO.md).
 
 **Production hardening checklist** (responsibilities beyond what the app itself enforces):
 
