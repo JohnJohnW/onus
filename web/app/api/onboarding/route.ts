@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       method = "PATCH";
       path = `/firms/${firmId}`;
       body = {
+        name: d.firm_name,
         abn: d.abn,
         firm_size: d.firm_size,
         practice_areas: d.practice_areas,
