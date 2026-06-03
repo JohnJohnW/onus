@@ -83,10 +83,23 @@ function CheckList({
             <span
               className={cn(
                 "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                active ? "border-neutral-300 bg-neutral-100 text-neutral-900" : "border-neutral-600"
+                active ? "border-neutral-100 bg-neutral-100 text-neutral-900" : "border-neutral-600"
               )}
             >
-              {active && "x"}
+              {active && (
+                <svg
+                  viewBox="0 0 16 16"
+                  className="h-3 w-3"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3.5 8.5l3 3 6-7" />
+                </svg>
+              )}
             </span>
             {opt}
           </button>
@@ -223,13 +236,29 @@ export function OnboardingWizard({
           </>
         )}
 
-        {step === 1 && (
-          <p className="text-sm text-neutral-400">
-            As the principal, you&apos;ll be recorded as your firm&apos;s <strong className="text-neutral-200">compliance
-            officer</strong> and <strong className="text-neutral-200">senior manager</strong> for AML/CTF purposes. You
-            can delegate these later.
-          </p>
-        )}
+        {step === 1 &&
+          (firmSize === "Sole practitioner" ? (
+            <p className="text-sm leading-relaxed text-neutral-400">
+              As a sole practitioner you&apos;ll act as your firm&apos;s{" "}
+              <strong className="text-neutral-200">compliance officer</strong>,{" "}
+              <strong className="text-neutral-200">senior manager</strong> and{" "}
+              <strong className="text-neutral-200">governing body</strong> for AML/CTF purposes -
+              one person holding all three roles is expressly allowed (s26J, ss26N-26P). You can
+              add colleagues and reassign roles anytime in Settings.
+            </p>
+          ) : (
+            <p className="text-sm leading-relaxed text-neutral-400">
+              You&apos;ll be set as your firm&apos;s{" "}
+              <strong className="text-neutral-200">compliance officer</strong> (day-to-day
+              AML/CTF; must be management level, an Australian resident, and fit and proper -
+              s26J) and the <strong className="text-neutral-200">senior manager</strong> who
+              approves the program (ss26N-26P); your{" "}
+              <strong className="text-neutral-200">governing body</strong> oversees it. Good
+              practice is to separate the compliance officer from the approving senior manager
+              where you can - once you&apos;ve added colleagues you can assign different people in
+              Settings. Senior-manager approval can&apos;t be delegated.
+            </p>
+          ))}
 
         {step === 2 && (
           <>

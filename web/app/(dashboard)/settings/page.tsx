@@ -133,7 +133,7 @@ export default async function SettingsPage() {
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
           Data residency
         </h2>
-        <DataResidencyPanel isAdmin={session.role === "admin"} />
+        <DataResidencyPanel />
       </section>
     </div>
   );
