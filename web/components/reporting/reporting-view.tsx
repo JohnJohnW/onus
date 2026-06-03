@@ -192,6 +192,13 @@ function ReportRow({ report }: { report: Report }) {
           <p className="mt-2 whitespace-pre-wrap text-xs text-neutral-400">{report.grounds}</p>
         )
       )}
+      {report.type === "smr" && (
+        <div className="mt-3">
+          <Button asChild size="sm" variant="outline">
+            <a href={`/api/reports/${report.id}/document`}>Download (Word)</a>
+          </Button>
+        </div>
+      )}
       {active && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {report.status === "draft" && (
