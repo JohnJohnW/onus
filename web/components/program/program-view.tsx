@@ -368,13 +368,18 @@ export function ProgramView({
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
-      <header className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Compliance Program</h1>
-        <p className="mt-2 text-sm text-neutral-400">
-          Your AML/CTF program - the risk assessment plus the policies that manage your risks
-          and keep you compliant. It must be documented and approved by a senior manager before
-          you provide a designated service.
-        </p>
+      <header className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Compliance Program</h1>
+          <p className="mt-2 text-sm text-neutral-400">
+            Your AML/CTF program - the risk assessment plus the policies that manage your risks
+            and keep you compliant. It must be documented and approved by a senior manager before
+            you provide a designated service.
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="shrink-0">
+          <a href="/api/program/document">Download (Word)</a>
+        </Button>
       </header>
 
       {/* Status banner */}
