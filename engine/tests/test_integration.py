@@ -623,6 +623,35 @@ def test_data_residency_attestation_flow(client):
     assert client.get("/attestation", headers={"Authorization": f"Bearer {btoken}"}).json() is None
 
 
+def test_oauth_bridge_secret_and_find_or_create(client, monkeypatch):
+    """SSO bridge: disabled without the secret; with it, a new identity creates a firm +
+    user and returns a working token; a wrong secret is rejected; a repeat finds the user."""
+    monkeypatch.delenv("OAUTH_BRIDGE_SECRET", raising=False)
+    assert (
+        client.post("/auth/oauth", json={"email": "sso@x.io", "provider": "google"}).status_code
+        == 401
+    )
+    monkeypatch.setenv("OAUTH_BRIDGE_SECRET", "test-bridge-secret")
+    email = f"sso_{uuid.uuid4().hex[:8]}@x.io"
+    hdr = {"X-Internal-Secret": "test-bridge-secret"}
+    r = client.post(
+        "/auth/oauth", json={"email": email, "full_name": "SSO User", "provider": "google"}, headers=hdr
+    )
+    assert r.status_code == 200, r.text
+    token = r.json()["access_token"]
+    me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200 and me.json()["email"] == email
+    assert (
+        client.post(
+            "/auth/oauth", json={"email": email, "provider": "google"},
+            headers={"X-Internal-Secret": "wrong"},
+        ).status_code
+        == 401
+    )
+    # Same identity again resolves to the same user (no duplicate), still 200.
+    assert client.post("/auth/oauth", json={"email": email, "provider": "google"}, headers=hdr).status_code == 200
+
+
 def test_demo_eoi_capture(client):
     """The public demo expression-of-interest endpoint stores a lead and validates email."""
     assert (

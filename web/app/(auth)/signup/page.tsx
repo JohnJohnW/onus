@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
+import { GoogleButton } from "@/components/auth/google-button";
 import { OnusMark } from "@/components/brand/onus-mark";
 
 export default function SignupPage() {
@@ -87,6 +88,7 @@ export default function SignupPage() {
         </div>
         <h1 className="mb-1 text-lg font-medium">Create your firm</h1>
         <p className="mb-6 text-sm text-neutral-400">Set up Onus for your practice.</p>
+        <GoogleButton callbackUrl="/onboarding" />
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label htmlFor="firmName" className={label}>Firm name</label>

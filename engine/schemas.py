@@ -39,6 +39,18 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class OAuthBridgeRequest(BaseModel):
+    """A verified OAuth identity passed from the web tier to mint an engine token."""
+    email: str = Field(min_length=3)
+    full_name: Optional[str] = None
+    provider: str
+
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, v: str) -> str:
+        return _check_email(v)
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

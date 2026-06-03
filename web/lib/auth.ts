@@ -1,7 +1,35 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 
 const engineUrl = process.env.ENGINE_INTERNAL_URL ?? "http://localhost:8000";
+
+// SSO is enabled only when Google OAuth credentials are configured.
+const googleEnabled =
+  !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
+
+// Exchange a verified OAuth identity for an engine token via the secret-gated bridge
+// (/auth/oauth). The shared OAUTH_BRIDGE_SECRET proves the call comes from this web tier.
+// Returns the engine AuthResponse, or null on failure (the user then lands back at login).
+async function exchangeOAuth(
+  email: string,
+  fullName: string | null,
+): Promise<{ access_token: string; user: { id: string; firm_id: string; role: string } } | null> {
+  try {
+    const res = await fetch(`${engineUrl}/auth/oauth`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Secret": process.env.OAUTH_BRIDGE_SECRET ?? "",
+      },
+      body: JSON.stringify({ email, full_name: fullName, provider: "google" }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 // The engine token lives 24h. Renew it once it is past the halfway point of that
 // life, so any active session (every request through the layout or a proxy runs the
@@ -78,9 +106,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
+    ...(googleEnabled
+      ? [
+          Google({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          }),
+        ]
+      : []),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account, profile }) {
+      // SSO sign-in: exchange the provider-verified email for an engine token.
+      if (account?.provider === "google") {
+        const email = typeof profile?.email === "string" ? profile.email : null;
+        const name = typeof profile?.name === "string" ? profile.name : null;
+        if (email) {
+          const data = await exchangeOAuth(email, name);
+          if (data?.access_token) {
+            token.user_id = data.user.id;
+            token.firm_id = data.user.firm_id;
+            token.role = data.user.role;
+            token.access_token = data.access_token;
+            token.access_token_expires = accessTokenExpiry(data.access_token);
+          }
+        }
+        return token;
+      }
       if (user) {
         // Sign-in: capture the freshly minted engine token and its expiry.
         token.user_id = user.id as string;

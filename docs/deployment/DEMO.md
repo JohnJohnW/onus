@@ -84,6 +84,27 @@ The engine runs on serverless functions, so migrations are applied once via a wo
 - Sign up a firm, complete onboarding, confirm the dashboard populates.
 - Expressions of interest land in Supabase: `select * from demo_eois;`.
 
+## Optional: Google SSO ("Continue with Google")
+
+1. In Google Cloud Console, create an **OAuth 2.0 Client ID** (type: Web application).
+   Authorized redirect URI: `https://<your-web-domain>/api/auth/callback/google`.
+2. Generate a shared secret: `openssl rand -hex 32`.
+3. **Web** project env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_BRIDGE_SECRET`.
+4. **Engine** project env var: `OAUTH_BRIDGE_SECRET` (the *same* value - it gates the engine's
+   `/auth/oauth` bridge so only the web tier can mint tokens).
+5. Redeploy both. The "Continue with Google" button then appears automatically on the login
+   and signup pages. A new Google user gets a firm created and is sent to onboarding; a
+   returning one is matched by email. SSO stays hidden unless these are set.
+
+## Optional: email each expression of interest (Resend)
+
+EOIs are always stored in the `demo_eois` table. To also be emailed each one:
+
+1. Create a Resend account and API key; verify a sender domain (or send from
+   `onboarding@resend.dev` to your own address for testing).
+2. **Engine** project env vars: `RESEND_API_KEY`, `EOI_NOTIFY_EMAIL` (recipient), and
+   optionally `EOI_FROM_EMAIL`. Redeploy the engine. Without these, EOIs are simply stored.
+
 ## Demo-only trade-offs (Vercel serverless)
 
 - **US compute** (Vercel) -> not for real client data. The banner says so.
