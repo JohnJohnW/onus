@@ -812,3 +812,17 @@ class AttestationOut(BaseModel):
     attested_on: Optional[date] = None
     notes: Optional[str] = None
     updated_at: datetime
+
+
+# ----- Demo expression of interest -----
+
+class EoiIn(BaseModel):
+    email: str = Field(min_length=3)
+    name: Optional[str] = None
+    firm_name: Optional[str] = None
+    note: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, v: str) -> str:
+        return _check_email(v)
