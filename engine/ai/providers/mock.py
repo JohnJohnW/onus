@@ -16,3 +16,11 @@ class MockProvider(AIProvider):
     async def embed(self, text: str) -> list[float]:
         # Tiny deterministic vector; enough for tests, not for real retrieval.
         return [float(len(text) % 7), 1.0, 0.0]
+
+    async def analyze_document(
+        self, *, file_bytes, filename, content_type, instruction, system=None
+    ) -> str:
+        return (
+            f"[MOCK ANALYSIS - {instruction[:60]}] file={filename} type={content_type} "
+            f"bytes={len(file_bytes)}"
+        )

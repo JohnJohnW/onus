@@ -21,3 +21,17 @@ class AIProvider(ABC):
     async def embed(self, text: str) -> list[float]:
         """Return an embedding vector for ``text``."""
         raise NotImplementedError
+
+    async def analyze_document(
+        self,
+        *,
+        file_bytes: bytes,
+        filename: str,
+        content_type: str,
+        instruction: str,
+        system: str = None,
+    ) -> str:
+        """Analyze an uploaded document (PDF / image / text) and return Claude's text
+        answer. Optional capability - providers that cannot read documents leave this
+        unimplemented."""
+        raise NotImplementedError("This provider does not support document analysis.")
