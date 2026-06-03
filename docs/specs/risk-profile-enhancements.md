@@ -23,7 +23,7 @@
 | # | Requirement (Step 2) | Built? | Gap to close |
 |---|---|---|---|
 | G1 | Four risk categories with inherent rating + explanation | Yes | - |
-| G2 | **Country risk** done properly: list every country **incl. Australia**; band via Basel AML Index (Step 2 pp.19-21); **force High** on any of AUSTRAC's **five** high-risk triggers (FATF, sanctions/DFAT, prescribed foreign country, tax haven, terrorism support) | Note: Country list exists, scoring logic does not | Add Basel score + 5 override flags + auto-band |
+| G2 | **Country risk** done properly: list every country **incl. Australia**; band via Basel AML Index (< 5.00 = Low); **force High** on AUSTRAC's **two mandated** triggers (FATF high-risk listing, DFAT/UN sanctions) plus **three Onus-enhanced** triggers (prescribed foreign country, tax haven, terrorism support) | Done | Basel score + override flags + auto-band |
 | G3 | **Proliferation financing** assessed explicitly; 4-criterion "low PF" check; record that PF was assessed even if low (p.24-25) | No | Add PF assessment sub-flow |
 | G4 | **Methodology scales with complexity**: likelihood x impact (3x3 matrix) for medium complexity; **impact-only** for small/low-complexity (p.26-29) | Single implicit rule | Add methodology mode + matrix engine |
 | G5 | **Rationale per rating tied to a data source** (national risk assessments, typologies, lawyer/conveyancer quick guides, internal input) (p.30) | Note: Free-text explanation only | Require a `data_source` reference per rating |
@@ -77,19 +77,18 @@ customer_risk_factors         # G8  (catalogue, firm-scoped overrides allowed)
 
 ## 4. Scoring engine
 
-- **3x3 inherent-risk matrix** (Step 2 p.28), default for `likelihood_x_impact`:
-
-  | Likelihood v / Impact -> | Low | Medium | High |
-  |---|---|---|---|
-  | Very likely | Medium | High | High |
-  | Likely | Low | Medium | High |
-  | Not likely | Low | Low | Medium |
-
-- `impact_only` mode: inherent rating = impact band (p.29).
-- **Country override**: `inherent = High` if ANY of `fatf_listed`, `sanctions_listed`, `prescribed_foreign_country`, `tax_haven`, `terrorism_support`; else band from `basel_score`. Always include Australia. The five triggers are AUSTRAC's "High-risk countries, regions and groups" categories (Iran & DPRK are the only currently *prescribed* countries); the Basel banding is from Step 2 - that page uses neither "Basel" nor "grey/black-list" wording, so cite FATF statements as authoritative.
+- **Methodology** follows AUSTRAC's factor-counting "Starter Kit" method (see
+  `risk-methodology.md`): each factor is rated L/M/H by inherent risk and the overall
+  rating is aggregated by count (below). The likelihood x impact **matrix is a separate,
+  optional AUSTRAC method** for medium-complexity firms; it is **not shipped** (its cells
+  could not be verified first-hand and nothing fed it) and is specified as Method A in
+  `risk-methodology.md`, to be activated with per-factor likelihood/impact capture.
+- `impact_only` mode: inherent rating = the factor's inherent band.
+- **Country override**: `inherent = High` if ANY of `fatf_listed`, `sanctions_listed`, `prescribed_foreign_country`, `tax_haven`, `terrorism_support`; else band from `basel_score`. Always include Australia. AUSTRAC mandates automatic-High on **two** triggers - a FATF high-risk listing or a DFAT/UN sanctions listing (Law Society p21) - and a sanctions hit is an absolute "must not deal" prohibition above the rating. The other three are **Onus enhanced** factors (good practice, not mandated), labelled as such. Basel `< 5.00 = Low` is verbatim (Law Society p21); there is **no** published medium/high Basel boundary, so the 5-6 / > 6 split is an Onus choice.
 - **Mandatory enhanced CDD (not just a rating):** where a customer, beneficial owner, person on whose behalf, agent, or body corporate is **present in or formed in a jurisdiction FATF has called to apply enhanced CDD**, EDD is mandatory under Act s32(d) -> drives `cdd_check.level='enhanced'` in Clients & Matters. A **sanctions hit is an absolute prohibition** (must not deal) sitting above the score - route to screening, not the rating.
-- **Overall rating**: highest inherent rating across all factors (the current
-  behaviour) - keep, but now fed by the matrix.
+- **Overall rating**: AUSTRAC / Law Society combined method - High if any factor is
+  High; else Medium if two or more factors are Medium; else Low (Law Society Annexure 4
+  p53). Replaced the earlier "highest factor wins", which over-rated.
 - **PF sub-flow**: 4 yes/no questions (Australia-only ops; no high-risk-jurisdiction
   customers; no movement of money/sensitive/dual-use goods; no PF-relevant service).
   All "yes" + low -> store `pf_risk_rating='low'`, surface "no separate PF policies
@@ -135,8 +134,9 @@ customer_risk_factors         # G8  (catalogue, firm-scoped overrides allowed)
   a data source (p.30).
 - Logging an AUSTRAC communication or a sanctions-list change -> `ReviewTrigger`
   (feeds Step 4).
-- On approval, set `next_review_due_at = approved_at + 3 years` (already wired) and
-  keep the version history.
+- On approval, set `next_review_due_at` at a cadence that depends on the overall rating
+  (High yearly / Medium 2-yearly / Low 3-yearly; Law Society Annexure 4 p53) and schedule
+  the next review deadline; keep the version history.
 
 ## 9. Acceptance criteria
 

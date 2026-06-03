@@ -1,7 +1,7 @@
 """Risk assessment - current state, onboarding inputs, and approval flow."""
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -14,6 +14,7 @@ from deadlines import complete_deadlines
 from models import (
     AuditLog,
     AustracCommunication,
+    ComplianceDeadline,
     Firm,
     FirmRiskState,
     GovernanceApproval,
@@ -43,7 +44,7 @@ router = APIRouter()
 
 # AUSTRAC-guided inherent risk ratings (rating, plain-English explanation).
 SERVICE_RULES: dict[str, tuple[str, str]] = {
-    "Property transactions": ("medium", "Conveyancing and property transfers are a common channel for laundering money."),
+    "Property transactions": ("high", "AUSTRAC's national risk assessment rates real estate and conveyancing a high money-laundering vulnerability."),
     "Trust establishment": ("high", "Setting up trusts can obscure who really controls assets."),
     "Company formation": ("high", "Forming companies can hide who is really behind them."),
     "Client funds management": ("high", "Holding or moving client money directly is among the highest-risk work."),
@@ -68,19 +69,35 @@ CHANNEL_RULES: dict[str, tuple[str, str]] = {
 }
 
 
-# ----- Scoring engine (Step 2) -----
+# ----- Scoring engine -----
+#
+# Operative method: each selected service / customer type / delivery channel / country
+# carries an inherent rating (impact-based, from AUSTRAC's published vulnerability
+# ratings), and the overall rating is aggregated by the AUSTRAC / Law Society combined
+# method below. The likelihood x impact matrix for the medium-complexity tier is
+# specified in docs/specs/risk-methodology.md and activates once per-factor
+# likelihood/impact capture is added; it is not applied yet, so we do not ship it here.
 
-_RATING_ORDER = {"low": 0, "medium": 1, "high": 2}
-_INHERENT_MATRIX = {
-    ("very_likely", "low"): "medium", ("very_likely", "medium"): "high", ("very_likely", "high"): "high",
-    ("likely", "low"): "low", ("likely", "medium"): "medium", ("likely", "high"): "high",
-    ("not_likely", "low"): "low", ("not_likely", "medium"): "low", ("not_likely", "high"): "medium",
-}
+_REVIEW_INTERVAL_DAYS = {"high": 365, "medium": 730, "low": 1095}
 
 
-def _matrix_rating(likelihood: Optional[str], impact: Optional[str]) -> Optional[str]:
-    """3x3 inherent-risk matrix (Step 2 p.28) for likelihood_x_impact methodology."""
-    return _INHERENT_MATRIX.get((likelihood or "", impact or ""))
+def aggregate_overall(ratings: list[str]) -> str:
+    """Overall ML/TF rating per the AUSTRAC / Law Society combined method: High if any
+    factor is High; otherwise Medium if two or more factors are Medium; otherwise Low
+    (when at least one factor is rated). 'unassessed' when nothing has been rated yet."""
+    if any(r == "high" for r in ratings):
+        return "high"
+    if sum(1 for r in ratings if r == "medium") >= 2:
+        return "medium"
+    if ratings:
+        return "low"
+    return "unassessed"
+
+
+def review_interval_days(rating: Optional[str]) -> int:
+    """Risk-assessment review cadence by overall rating (AUSTRAC / Law Society small-
+    practice guide): High yearly, Medium every 2 years, Low every 3 years."""
+    return _REVIEW_INTERVAL_DAYS.get(rating or "", 1095)
 
 
 def _basel_band(score) -> Optional[str]:
@@ -108,27 +125,38 @@ def _country_rating(row: RiskAssessmentCountry) -> str:
 
 
 def _country_explanation(row: RiskAssessmentCountry) -> str:
-    reasons = []
+    # AUSTRAC's method auto-rates a country High on two triggers: a FATF high-risk
+    # listing or a DFAT/UN sanctions listing. The other three are Onus's own enhanced
+    # factors (good practice, not mandated by AUSTRAC), so we label them as such.
+    mandated, enhanced = [], []
     if row.fatf_listed:
-        reasons.append("flagged by the FATF")
+        mandated.append("on the FATF list of high-risk jurisdictions")
     if row.sanctions_listed:
-        reasons.append("subject to Australian/UN sanctions")
+        mandated.append(
+            "subject to Australian/UN sanctions - you must not deal with a sanctioned "
+            "person, so screen any connected party before acting"
+        )
     if row.prescribed_foreign_country:
-        reasons.append("a prescribed foreign country")
+        enhanced.append("a prescribed foreign country")
     if row.tax_haven:
-        reasons.append("a known tax haven")
+        enhanced.append("a known tax haven")
     if row.terrorism_support:
-        reasons.append("linked to terrorism financing")
-    if reasons:
-        return f"{row.country} is rated high risk - " + "; ".join(reasons) + "."
+        enhanced.append("linked to terrorism financing")
+    if mandated or enhanced:
+        parts = []
+        if mandated:
+            parts.append("AUSTRAC automatic high-risk: " + "; ".join(mandated))
+        if enhanced:
+            parts.append("Onus enhanced factor: " + "; ".join(enhanced))
+        return f"{row.country} is rated high risk. " + ". ".join(parts) + "."
     if row.basel_score is not None:
         return f"{row.country} scored {row.basel_score} on the Basel AML Index ({_basel_band(row.basel_score)} risk)."
     return f"{row.country} has no elevated country-risk indicators recorded."
 
 
 def _recompute_overall(db: Session, assessment_id) -> str:
-    """Overall = highest inherent rating across all four risk categories."""
-    best = -1
+    """Overall rating aggregated across all four risk categories (see aggregate_overall)."""
+    ratings: list[str] = []
     for model in (
         RiskAssessmentService,
         RiskAssessmentCustomerType,
@@ -138,8 +166,9 @@ def _recompute_overall(db: Session, assessment_id) -> str:
         for (rating,) in db.execute(
             select(model.inherent_risk_rating).where(model.risk_assessment_id == assessment_id)
         ).all():
-            best = max(best, _RATING_ORDER.get(rating, -1))
-    return {0: "low", 1: "medium", 2: "high"}.get(best, "unassessed")
+            if rating:
+                ratings.append(rating)
+    return aggregate_overall(ratings)
 
 
 def _serialize(a: RiskAssessment, senior_manager_name: str) -> RiskAssessmentOut:
@@ -343,6 +372,20 @@ def approve(
     # Approving the assessment satisfies any pending risk-assessment review deadline.
     complete_deadlines(db, current_user.firm_id, "risk_assessment_review", current_user.id)
 
+    # Schedule the next review at a cadence set by the approved rating (AUSTRAC / Law
+    # Society small-practice guide: High yearly, Medium 2-yearly, Low 3-yearly).
+    interval = review_interval_days(assessment.overall_risk_rating)
+    assessment.next_review_due_at = now + timedelta(days=interval)
+    db.add(
+        ComplianceDeadline(
+            firm_id=current_user.firm_id,
+            deadline_type="risk_assessment_review",
+            entity_type="risk_assessment",
+            entity_id=assessment.id,
+            due_at=now + timedelta(days=interval),
+        )
+    )
+
     db.add(
         GovernanceApproval(
             firm_id=current_user.firm_id,
@@ -424,7 +467,7 @@ def set_countries(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> RiskAssessmentOut:
-    """Set the country list with override flags; rating is computed (Step 2 pp.19-21)."""
+    """Set the country list with override flags; rating is computed (AUSTRAC Step 2 country guidance; FATF / DFAT lists)."""
     firm_id = current_user.firm_id
     assessment = _get_or_create(db, firm_id)
     # Validate and de-duplicate (last value wins per country) before mutating.
@@ -471,7 +514,7 @@ def set_proliferation_financing(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> RiskAssessmentOut:
-    """Four-criterion PF screen (Step 2 pp.24-25; Act s26C(1))."""
+    """Four-criterion PF screen (AUSTRAC Step 2 PF guidance; Act s26C(1))."""
     assessment = _get_or_create(db, current_user.firm_id)
     low = all(
         [

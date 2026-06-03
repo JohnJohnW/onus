@@ -4,7 +4,8 @@ from types import SimpleNamespace
 from routers.risk_assessment import (
     _basel_band,
     _country_rating,
-    _matrix_rating,
+    aggregate_overall,
+    review_interval_days,
 )
 
 
@@ -22,26 +23,29 @@ def _country(**kw):
     return SimpleNamespace(**base)
 
 
-def test_inherent_matrix_step2_p28():
-    # The 3x3 matrix exactly as published (Step 2 p.28).
-    assert _matrix_rating("very_likely", "low") == "medium"
-    assert _matrix_rating("very_likely", "medium") == "high"
-    assert _matrix_rating("very_likely", "high") == "high"
-    assert _matrix_rating("likely", "low") == "low"
-    assert _matrix_rating("likely", "medium") == "medium"
-    assert _matrix_rating("likely", "high") == "high"
-    assert _matrix_rating("not_likely", "low") == "low"
-    assert _matrix_rating("not_likely", "medium") == "low"
-    assert _matrix_rating("not_likely", "high") == "medium"
+def test_aggregate_overall_kit_rule():
+    # AUSTRAC / Law Society combined method: any High -> High; >=2 Mediums -> Medium;
+    # a single Medium (or only Lows) -> Low; nothing rated -> unassessed.
+    assert aggregate_overall(["low", "medium", "high"]) == "high"
+    assert aggregate_overall(["medium", "medium", "low"]) == "medium"
+    assert aggregate_overall(["medium", "low", "low"]) == "low"
+    assert aggregate_overall(["low", "low"]) == "low"
+    assert aggregate_overall(["medium"]) == "low"
+    assert aggregate_overall([]) == "unassessed"
 
 
-def test_matrix_unknown_inputs_return_none():
-    assert _matrix_rating(None, None) is None
-    assert _matrix_rating("sometimes", "low") is None
+def test_review_interval_days_by_rating():
+    # High yearly, Medium 2-yearly, Low (and unknown) 3-yearly.
+    assert review_interval_days("high") == 365
+    assert review_interval_days("medium") == 730
+    assert review_interval_days("low") == 1095
+    assert review_interval_days("unassessed") == 1095
+    assert review_interval_days(None) == 1095
 
 
 def test_basel_bands():
-    # low 0-5, medium 5.01-6, high 6.01-10 (Step 2 p.20).
+    # Basel AML Index: <=5.00 = low is the verified AUSTRAC/Basel boundary; the
+    # 5.01-6 medium / >6 high split is an Onus banding choice.
     assert _basel_band(None) is None
     assert _basel_band(0) == "low"
     assert _basel_band(4.04) == "low"
