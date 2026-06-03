@@ -14,11 +14,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from agent_log import record_agent_task
-from ai.drafting import analyze_uploaded_document, extract_beneficial_owners
+from ai.drafting import analyze_uploaded_document, extract_beneficial_owners, extract_identity
 from auth.dependencies import get_current_user
 from database import get_db
 from models import Document, User
-from schemas import AnalyzeResultOut, DocumentOut, OwnerOut
+from schemas import AnalyzeResultOut, DocumentOut, IdentityOut, OwnerOut
 from storage import MAX_BYTES, is_allowed_filename, read_document, save_document
 
 router = APIRouter()
@@ -104,9 +104,14 @@ async def analyze(
     fname = (file.filename or "upload")[:255]
     ctype = file.content_type or "application/octet-stream"
     owners: list = []
+    identity = None
     try:
         if purpose == "beneficial_owners":
             owners, analysis = await extract_beneficial_owners(
+                file_bytes=data, filename=fname, content_type=ctype
+            )
+        elif purpose == "identity":
+            identity, analysis = await extract_identity(
                 file_bytes=data, filename=fname, content_type=ctype
             )
         else:
@@ -133,7 +138,10 @@ async def analyze(
     )
     db.commit()
     return AnalyzeResultOut(
-        purpose=purpose, analysis=analysis, owners=[OwnerOut(**o) for o in owners]
+        purpose=purpose,
+        analysis=analysis,
+        owners=[OwnerOut(**o) for o in owners],
+        identity=IdentityOut(**identity) if identity else None,
     )
 
 

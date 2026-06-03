@@ -448,10 +448,20 @@ class OwnerOut(BaseModel):
     role: Optional[str] = None
 
 
+class IdentityOut(BaseModel):
+    full_name: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    document_type: Optional[str] = None
+    document_number: Optional[str] = None
+    expiry: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class AnalyzeResultOut(BaseModel):
     purpose: str
     analysis: str
     owners: List[OwnerOut] = []
+    identity: Optional[IdentityOut] = None
 
 
 class MatterCreate(BaseModel):

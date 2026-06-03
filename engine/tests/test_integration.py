@@ -272,6 +272,18 @@ def test_document_extracts_beneficial_owners(client, monkeypatch):
     assert owners and owners[0]["name"] == "Jane Doe", owners
 
 
+def test_document_extracts_identity(client, monkeypatch):
+    """The identity purpose returns structured ID details (for one-click CDD record)."""
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    _, token = _signup(client, "ID Extract Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    files = {"file": ("id.jpg", b"\xff\xd8\xff fake-jpeg-bytes", "image/jpeg")}
+    res = client.post("/documents/analyze", data={"purpose": "identity"}, files=files, headers=h)
+    assert res.status_code == 200, res.text
+    ident = res.json()["identity"]
+    assert ident and ident["full_name"] == "Jane Doe", ident
+
+
 def test_document_upload_list_download_and_isolation(client):
     """Upload an evidence file, list and download it, and confirm another firm can
     neither see nor download it; disallowed file types are rejected."""

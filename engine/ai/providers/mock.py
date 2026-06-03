@@ -22,6 +22,12 @@ class MockProvider(AIProvider):
     ) -> str:
         if "JSON array" in instruction:  # structured extraction (e.g. beneficial owners)
             return '[{"name": "Jane Doe", "ownership_pct": 60, "role": "director"}]'
+        if "JSON object" in instruction:  # structured extraction (e.g. identity)
+            return (
+                '{"full_name": "Jane Doe", "date_of_birth": "1980-01-01", '
+                '"document_type": "passport", "document_number": "P1234567", '
+                '"expiry": "2030-01-01", "notes": "Appears valid."}'
+            )
         return (
             f"[MOCK ANALYSIS - {instruction[:60]}] file={filename} type={content_type} "
             f"bytes={len(file_bytes)}"

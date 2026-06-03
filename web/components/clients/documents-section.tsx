@@ -15,6 +15,14 @@ type Doc = {
   created_at: string;
 };
 type Owner = { name: string; ownership_pct: number | null; role: string | null };
+type Identity = {
+  full_name: string | null;
+  date_of_birth: string | null;
+  document_type: string | null;
+  document_number: string | null;
+  expiry: string | null;
+  notes: string | null;
+};
 
 function humanSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -31,6 +39,8 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
   const [purpose, setPurpose] = useState("summary");
   const [owners, setOwners] = useState<Owner[]>([]);
   const [addingOwners, setAddingOwners] = useState(false);
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [recording, setRecording] = useState(false);
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -71,6 +81,7 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
     setErr(null);
     setAnalysis(null);
     setOwners([]);
+    setIdentity(null);
     const fd = new FormData();
     fd.append("file", file);
     fd.append("purpose", purpose);
@@ -81,6 +92,7 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
       const d = await res.json();
       setAnalysis(d.analysis ?? null);
       setOwners(d.owners ?? []);
+      setIdentity(d.identity ?? null);
     } else {
       const d = await res.json().catch(() => null);
       setErr((d && d.detail) || "Analysis failed.");
@@ -110,6 +122,26 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
       router.refresh();
     } finally {
       setAddingOwners(false);
+    }
+  }
+
+  async function recordCddFromId() {
+    if (!identity) return;
+    setRecording(true);
+    setErr(null);
+    const res = await fetch(`/api/clients/${entityId}/cdd`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kyc_fields: { ...identity, source: "Onus document analysis" } }),
+    });
+    setRecording(false);
+    if (res.ok) {
+      setIdentity(null);
+      setAnalysis(null);
+      router.refresh();
+    } else {
+      const d = await res.json().catch(() => null);
+      setErr((d && d.detail) || "Could not record CDD.");
     }
   }
 
@@ -190,6 +222,18 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
                     {addingOwners
                       ? "Adding..."
                       : `Add ${owners.length} beneficial owner${owners.length === 1 ? "" : "s"} as parties`}
+                  </button>
+                </div>
+              )}
+              {identity && entityType === "client" && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={recordCddFromId}
+                    disabled={recording}
+                    className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-100 hover:bg-neutral-800 disabled:opacity-50"
+                  >
+                    {recording ? "Recording..." : "Record CDD with these details"}
                   </button>
                 </div>
               )}
