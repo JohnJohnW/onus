@@ -6,6 +6,7 @@ import { useState } from "react";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import { formatDate, relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -200,7 +201,14 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
           {isDraft && (
             <div className="mt-4">
               <Button variant="outline" size="sm" onClick={draftSummary} disabled={drafting}>
-                {drafting ? "Drafting..." : "Draft summary with Onus"}
+                {drafting ? (
+                  <>
+                    <Spinner className="mr-2" />
+                    Drafting...
+                  </>
+                ) : (
+                  "Draft summary with Onus"
+                )}
               </Button>
               <p className="mt-1.5 text-xs text-neutral-500">
                 Onus drafts this summary for {assessment.senior_manager_name} to review. It never

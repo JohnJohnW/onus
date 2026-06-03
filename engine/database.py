@@ -5,12 +5,24 @@ import os
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql://onus:onus_local@localhost:5432/onus"
 )
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
+# On Vercel's serverless runtime the function is short-lived and sits behind Supabase's
+# transaction pooler (pgbouncer), which does the real connection pooling. Holding a
+# SQLAlchemy pool there is wrong, and pool_pre_ping just adds a round-trip per request,
+# so use NullPool: each request checks out a fresh, cheap pooled connection and returns
+# it. A long-running deployment (Docker / a persistent host) keeps a normal pool with
+# pre-ping. (VERCEL is set automatically on Vercel.)
+if os.environ.get("VERCEL"):
+    engine = create_engine(
+        DATABASE_URL, poolclass=NullPool, future=True, connect_args={"connect_timeout": 10}
+    )
+else:
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 
