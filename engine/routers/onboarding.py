@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from agent_log import record_agent_task
 from auth.dependencies import get_current_user
 from database import get_db
 from models import (
@@ -112,6 +113,14 @@ def complete(
                     due_at=_next_march_31(now),
                 ),
             ]
+        )
+        record_agent_task(
+            db,
+            firm_id,
+            task_type="documents_prepared",
+            summary="Prepared your risk assessment and compliance program documents to review and download",
+            human_action_required=True,
+            human_action_type="review_documents",
         )
 
     firm.onboarding_completed = True
