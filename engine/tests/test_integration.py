@@ -242,6 +242,22 @@ def test_smr_docx_download(client):
     assert res.content[:2] == b"PK", res.content[:8]
 
 
+def test_document_analysis_returns_extraction(client, monkeypatch):
+    """Onus reads an uploaded document (mock AI), returns an analysis, and logs the action.
+    The document is not stored by Onus (analysis is transient)."""
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    _, token = _signup(client, "Analyze Doc Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    files = {"file": ("extract.pdf", b"%PDF-1.4 ACME PTY LTD director Jane Doe 60 percent", "application/pdf")}
+    res = client.post(
+        "/documents/analyze", data={"purpose": "beneficial_owners"}, files=files, headers=h
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["analysis"]
+    activity = client.get("/dashboard/summary", headers=h).json().get("recent_agent_activity", [])
+    assert any("analyz" in a["summary"].lower() for a in activity), activity
+
+
 def test_document_upload_list_download_and_isolation(client):
     """Upload an evidence file, list and download it, and confirm another firm can
     neither see nor download it; disallowed file types are rejected."""

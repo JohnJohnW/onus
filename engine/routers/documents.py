@@ -13,10 +13,12 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from agent_log import record_agent_task
+from ai.drafting import analyze_uploaded_document
 from auth.dependencies import get_current_user
 from database import get_db
 from models import Document, User
-from schemas import DocumentOut
+from schemas import AnalyzeResultOut, DocumentOut
 from storage import MAX_BYTES, is_allowed_filename, read_document, save_document
 
 router = APIRouter()
@@ -79,6 +81,53 @@ async def upload(
     db.commit()
     db.refresh(doc)
     return _out(doc)
+
+
+@router.post("/analyze", response_model=AnalyzeResultOut)
+async def analyze(
+    file: UploadFile = File(...),
+    purpose: str = Form("summary"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AnalyzeResultOut:
+    """Onus reads an uploaded document and returns an extraction/summary for review. The
+    file is sent to the AI for this request only - Onus does not store it, and it is
+    deleted from the AI provider immediately after. A draft to review, not a verified
+    determination."""
+    if not is_allowed_filename(file.filename or ""):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="That file type is not allowed.")
+    data = await file.read()
+    if len(data) == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The file is empty.")
+    if len(data) > MAX_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File too large (max 20 MB).")
+    try:
+        analysis = await analyze_uploaded_document(
+            file_bytes=data,
+            filename=(file.filename or "upload")[:255],
+            content_type=file.content_type or "application/octet-stream",
+            purpose=purpose,
+        )
+    except NotImplementedError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document analysis is not available with the configured AI provider.",
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not analyze the document right now. Please try again.",
+        )
+    record_agent_task(
+        db,
+        current_user.firm_id,
+        task_type="document_analyzed",
+        summary=f"Analyzed an uploaded document ({purpose.replace('_', ' ')})",
+        human_action_required=True,
+        human_action_type="review_analysis",
+    )
+    db.commit()
+    return AnalyzeResultOut(purpose=purpose, analysis=analysis)
 
 
 @router.get("", response_model=List[DocumentOut])

@@ -193,3 +193,41 @@ async def draft_cdd_plan(
     )
     text = await get_ai_provider().complete(prompt, system=_SYSTEM)
     return _sanitize(text) + DISCLAIMER
+
+
+_ANALYSIS_PURPOSES = {
+    "beneficial_owners": (
+        "Read this document and extract the beneficial owners: each person's name, their "
+        "ownership percentage if stated, and their role (director, shareholder, trustee, etc.). "
+        "List them clearly. If beneficial ownership cannot be determined, say so."
+    ),
+    "identity": (
+        "Read this identification document and extract the identity details: full name, date of "
+        "birth, document type, document number, and expiry date if present. Flag anything that "
+        "looks expired, inconsistent, or unreadable."
+    ),
+    "summary": (
+        "Summarise this document in a few sentences, then flag anything relevant to AML/CTF risk: "
+        "source of funds or wealth, unusual ownership structures, high-risk jurisdictions, or PEP "
+        "or sanctions indicators. If nothing is notable, say so."
+    ),
+}
+
+
+async def analyze_uploaded_document(
+    *, file_bytes: bytes, filename: str, content_type: str, purpose: str
+) -> str:
+    """Have Onus read an uploaded document and return an extraction/summary for review."""
+    instruction = _ANALYSIS_PURPOSES.get(purpose, _ANALYSIS_PURPOSES["summary"])
+    instruction += (
+        " Extract only what the document actually contains; do not invent details. This is a "
+        "draft to help the firm, not a verified determination."
+    )
+    text = await get_ai_provider().analyze_document(
+        file_bytes=file_bytes,
+        filename=filename,
+        content_type=content_type,
+        instruction=instruction,
+        system=_SYSTEM,
+    )
+    return _sanitize(text) + DISCLAIMER

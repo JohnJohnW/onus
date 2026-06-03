@@ -62,3 +62,52 @@ class AnthropicProvider(AIProvider):
             "embeddings provider (Anthropic recommends Voyage AI), or set "
             "AI_PROVIDER=openai / azure_openai, whose providers implement embed()."
         )
+
+    _FILES_BETA = "files-api-2025-04-14"
+
+    async def analyze_document(
+        self,
+        *,
+        file_bytes: bytes,
+        filename: str,
+        content_type: str,
+        instruction: str,
+        system: str = None,
+    ) -> str:
+        """Upload the document to the beta Files API, ask Claude about it, then delete it.
+        The file is removed immediately so a client document never lingers in the
+        provider's (non zero-retention) file store."""
+        import io
+
+        uploaded = await self._client.beta.files.upload(
+            file=(filename or "upload", io.BytesIO(file_bytes), content_type or "application/octet-stream"),
+            extra_headers={"anthropic-beta": self._FILES_BETA},
+        )
+        file_id = uploaded.id
+        try:
+            is_image = (content_type or "").startswith("image/")
+            block = {
+                "type": "image" if is_image else "document",
+                "source": {"type": "file", "file_id": file_id},
+            }
+            kwargs = {
+                "model": self.model,
+                "max_tokens": self.max_tokens,
+                "betas": [self._FILES_BETA],
+                "messages": [
+                    {"role": "user", "content": [{"type": "text", "text": instruction}, block]}
+                ],
+            }
+            if system:
+                kwargs["system"] = [
+                    {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
+                ]
+            message = await self._client.beta.messages.create(**kwargs)
+            return "".join(b.text for b in message.content if b.type == "text")
+        finally:
+            try:
+                await self._client.beta.files.delete(
+                    file_id, extra_headers={"anthropic-beta": self._FILES_BETA}
+                )
+            except Exception:
+                pass  # best-effort cleanup; never block the response on deletion

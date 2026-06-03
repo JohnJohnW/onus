@@ -438,6 +438,11 @@ class CddPlanOut(BaseModel):
     plan: str
 
 
+class AnalyzeResultOut(BaseModel):
+    purpose: str
+    analysis: str
+
+
 class MatterCreate(BaseModel):
     client_id: uuid.UUID
     designated_service_key: str
