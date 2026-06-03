@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
@@ -13,6 +14,7 @@ type Doc = {
   size_bytes: number;
   created_at: string;
 };
+type Owner = { name: string; ownership_pct: number | null; role: string | null };
 
 function humanSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -27,6 +29,9 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [purpose, setPurpose] = useState("summary");
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [addingOwners, setAddingOwners] = useState(false);
+  const router = useRouter();
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/documents?entity_type=${entityType}&entity_id=${entityId}`, {
@@ -65,6 +70,7 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
     setAnalyzing(true);
     setErr(null);
     setAnalysis(null);
+    setOwners([]);
     const fd = new FormData();
     fd.append("file", file);
     fd.append("purpose", purpose);
@@ -74,9 +80,36 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
     if (res.ok) {
       const d = await res.json();
       setAnalysis(d.analysis ?? null);
+      setOwners(d.owners ?? []);
     } else {
       const d = await res.json().catch(() => null);
       setErr((d && d.detail) || "Analysis failed.");
+    }
+  }
+
+  async function addOwners() {
+    setAddingOwners(true);
+    setErr(null);
+    try {
+      for (const o of owners) {
+        await fetch(`/api/clients/${entityId}/parties`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role: "beneficial_owner",
+            name: o.name,
+            bo_basis: o.ownership_pct != null && o.ownership_pct >= 25 ? "ownership_25pct" : "control",
+            is_pep: false,
+            pep_kind: null,
+            sanctions_hit: false,
+          }),
+        });
+      }
+      setOwners([]);
+      setAnalysis(null);
+      router.refresh();
+    } finally {
+      setAddingOwners(false);
     }
   }
 
@@ -146,6 +179,20 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
           {analysis && (
             <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-xs">
               <p className="whitespace-pre-wrap text-neutral-300">{analysis}</p>
+              {owners.length > 0 && entityType === "client" && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={addOwners}
+                    disabled={addingOwners}
+                    className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-100 hover:bg-neutral-800 disabled:opacity-50"
+                  >
+                    {addingOwners
+                      ? "Adding..."
+                      : `Add ${owners.length} beneficial owner${owners.length === 1 ? "" : "s"} as parties`}
+                  </button>
+                </div>
+              )}
               <p className="mt-2 text-neutral-600">
                 A draft from Onus for you to review and verify - not a determination.
               </p>

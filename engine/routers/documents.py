@@ -14,11 +14,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from agent_log import record_agent_task
-from ai.drafting import analyze_uploaded_document
+from ai.drafting import analyze_uploaded_document, extract_beneficial_owners
 from auth.dependencies import get_current_user
 from database import get_db
 from models import Document, User
-from schemas import AnalyzeResultOut, DocumentOut
+from schemas import AnalyzeResultOut, DocumentOut, OwnerOut
 from storage import MAX_BYTES, is_allowed_filename, read_document, save_document
 
 router = APIRouter()
@@ -101,13 +101,18 @@ async def analyze(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The file is empty.")
     if len(data) > MAX_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File too large (max 20 MB).")
+    fname = (file.filename or "upload")[:255]
+    ctype = file.content_type or "application/octet-stream"
+    owners: list = []
     try:
-        analysis = await analyze_uploaded_document(
-            file_bytes=data,
-            filename=(file.filename or "upload")[:255],
-            content_type=file.content_type or "application/octet-stream",
-            purpose=purpose,
-        )
+        if purpose == "beneficial_owners":
+            owners, analysis = await extract_beneficial_owners(
+                file_bytes=data, filename=fname, content_type=ctype
+            )
+        else:
+            analysis = await analyze_uploaded_document(
+                file_bytes=data, filename=fname, content_type=ctype, purpose=purpose
+            )
     except NotImplementedError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -127,7 +132,9 @@ async def analyze(
         human_action_type="review_analysis",
     )
     db.commit()
-    return AnalyzeResultOut(purpose=purpose, analysis=analysis)
+    return AnalyzeResultOut(
+        purpose=purpose, analysis=analysis, owners=[OwnerOut(**o) for o in owners]
+    )
 
 
 @router.get("", response_model=List[DocumentOut])

@@ -258,6 +258,20 @@ def test_document_analysis_returns_extraction(client, monkeypatch):
     assert any("analyz" in a["summary"].lower() for a in activity), activity
 
 
+def test_document_extracts_beneficial_owners(client, monkeypatch):
+    """The beneficial-owners purpose returns structured owners (for one-click add)."""
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    _, token = _signup(client, "BO Extract Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    files = {"file": ("extract.pdf", b"%PDF-1.4 ACME PTY LTD director Jane Doe 60 percent", "application/pdf")}
+    res = client.post(
+        "/documents/analyze", data={"purpose": "beneficial_owners"}, files=files, headers=h
+    )
+    assert res.status_code == 200, res.text
+    owners = res.json()["owners"]
+    assert owners and owners[0]["name"] == "Jane Doe", owners
+
+
 def test_document_upload_list_download_and_isolation(client):
     """Upload an evidence file, list and download it, and confirm another firm can
     neither see nor download it; disallowed file types are rejected."""

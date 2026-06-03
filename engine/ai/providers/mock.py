@@ -20,6 +20,8 @@ class MockProvider(AIProvider):
     async def analyze_document(
         self, *, file_bytes, filename, content_type, instruction, system=None
     ) -> str:
+        if "JSON array" in instruction:  # structured extraction (e.g. beneficial owners)
+            return '[{"name": "Jane Doe", "ownership_pct": 60, "role": "director"}]'
         return (
             f"[MOCK ANALYSIS - {instruction[:60]}] file={filename} type={content_type} "
             f"bytes={len(file_bytes)}"
