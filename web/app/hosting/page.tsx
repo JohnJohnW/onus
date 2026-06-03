@@ -83,9 +83,9 @@ export default function HostingPage() {
         </div>
 
         <p className="mt-6 text-sm text-neutral-500">
-          The full reasoning, the design trade-offs, and a step-by-step Australian deployment guide
-          live in the project README and{" "}
-          <code className="rounded bg-neutral-900 px-1 py-0.5 text-neutral-300">docs/deployment</code>.
+          The same application runs on Australian-hosted infrastructure for a production
+          deployment - with no request timeouts, durable document storage, and data kept
+          onshore. Register your interest below and we will walk you through it.
         </p>
 
         <section className="mt-12 rounded-xl border border-neutral-800 bg-neutral-900/40 p-6">

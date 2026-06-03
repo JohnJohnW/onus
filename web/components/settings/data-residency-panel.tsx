@@ -145,7 +145,7 @@ export function DataResidencyPanel({ isAdmin }: { isAdmin: boolean }) {
           {crossBorder && (
             <p className="rounded-md border border-amber-900/50 bg-amber-950/40 px-3 py-2 text-xs text-amber-300">
               Offshore hosting requires a documented APP 8 cross-border assessment and
-              governance sign-off. See the deployment guide.
+              sign-off from your firm&apos;s governance.
             </p>
           )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
