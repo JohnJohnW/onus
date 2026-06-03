@@ -93,3 +93,21 @@ app.include_router(eoi_router.router, prefix="/eoi", tags=["eoi"])
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "onus-engine"}
+
+
+@app.get("/debug/db")
+def debug_db() -> dict:
+    """TEMPORARY deploy diagnostic - reports the DB connection target (password masked)
+    and whether a trivial query succeeds. Removed after the demo deploy is verified."""
+    from sqlalchemy import text as _text
+
+    from database import engine as _engine
+
+    u = _engine.url
+    conn_info = {"user": u.username, "host": u.host, "port": u.port, "database": u.database}
+    try:
+        with _engine.connect() as connection:
+            connection.execute(_text("select 1"))
+        return {"db": "ok", "conn": conn_info}
+    except Exception as exc:  # noqa: BLE001 - surface the cause for diagnosis
+        return {"db": "error", "type": type(exc).__name__, "detail": str(exc)[:400], "conn": conn_info}
