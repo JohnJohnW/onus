@@ -93,15 +93,14 @@ export default function Home() {
       <section className="mx-auto max-w-3xl px-6 pb-20">
         <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-6">
           <h2 className="text-sm font-medium text-neutral-200">
-            Built for Australian data residency and the Privacy Act
+            Designed for Australian data residency
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-neutral-400">
-            Onus handles sensitive client and AML/CTF records. It is designed to run on
-            Australian-hosted infrastructure so your data stays onshore, consistent with
-            the Privacy Act 1988 (Australian Privacy Principles), AUSTRAC record-keeping,
-            legal professional privilege, and your confidentiality obligations. Hosting
-            outside Australia requires a documented cross-border (APP 8) assessment - see
-            the deployment and data-residency guidance in the project README.
+            Onus handles sensitive client and AML/CTF records, so it is built to run on
+            Australian-hosted infrastructure for production - keeping data onshore, in line
+            with the Privacy Act 1988 (Australian Privacy Principles), AUSTRAC
+            record-keeping, and your confidentiality obligations. Whether those protections
+            actually apply depends on where and how a given deployment is hosted.
           </p>
           <p className="mt-3 text-sm">
             <Link
