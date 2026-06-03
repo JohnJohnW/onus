@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from agent_log import record_agent_task
+from ai.drafting import draft_risk_assessment_summary
 from auth.dependencies import get_current_user, require_approver
 from database import get_db
 from deadlines import complete_deadlines
@@ -438,6 +440,55 @@ def request_changes(
     )
     db.commit()
     return {"status": "ok"}
+
+
+@router.post("/draft-summary", response_model=RiskAssessmentOut)
+async def draft_summary(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RiskAssessmentOut:
+    """Ask Onus to draft the overall risk-assessment summary for review. A draft only -
+    Onus never approves the assessment; that stays with the senior manager."""
+    assessment = _current(db, current_user.firm_id)
+    if assessment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No risk assessment found.")
+    if assessment.status != "draft":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This assessment is already approved. Request changes before re-drafting.",
+        )
+    firm = db.get(Firm, current_user.firm_id)
+    draft = await draft_risk_assessment_summary(
+        firm_name=firm.name if firm else None,
+        overall_rating=assessment.overall_risk_rating,
+        services=[(s.designated_service_type, s.inherent_risk_rating) for s in assessment.services],
+        customer_types=[(c.customer_type, c.inherent_risk_rating) for c in assessment.customer_types],
+        channels=[(d.channel_type, d.inherent_risk_rating) for d in assessment.delivery_channels],
+        countries=[(c.country, c.inherent_risk_rating) for c in assessment.countries],
+        pf_rating=assessment.pf_risk_rating,
+    )
+    assessment.summary = draft
+    db.add(
+        AuditLog(
+            firm_id=current_user.firm_id,
+            user_id=current_user.id,
+            action="risk_assessment.ai_drafted",
+            entity_type="risk_assessment",
+            entity_id=assessment.id,
+        )
+    )
+    record_agent_task(
+        db,
+        current_user.firm_id,
+        task_type="risk_summary_drafted",
+        summary="Drafted your risk-assessment summary for review",
+        human_action_required=True,
+        human_action_type="review_risk_assessment",
+        input_state={"risk_assessment_id": str(assessment.id)},
+    )
+    db.commit()
+    fresh = _current(db, current_user.firm_id)
+    return _serialize(fresh, current_user.full_name or current_user.email)
 
 
 @router.post("/methodology", response_model=RiskAssessmentOut)
