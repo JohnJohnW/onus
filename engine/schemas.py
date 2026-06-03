@@ -217,7 +217,7 @@ class CountriesRequest(BaseModel):
 
 
 class PfRequest(BaseModel):
-    """Four-criterion proliferation-financing screen (Step 2 pp.24-25)."""
+    """Four-criterion proliferation-financing screen (AUSTRAC Step 2 PF screen)."""
     australia_only_operations: bool
     no_high_risk_jurisdiction_customers: bool
     no_value_or_dual_use_goods_movement: bool

@@ -17,11 +17,9 @@ from models import (
     RiskAssessment,
     User,
 )
+from routers.risk_assessment import aggregate_overall, review_interval_days
 
 router = APIRouter()
-
-_RANK = {"low": 0, "medium": 1, "high": 2}
-_RANK_REV = {0: "low", 1: "medium", 2: "high"}
 
 _SUMMARIES = {
     "low": (
@@ -40,12 +38,6 @@ _SUMMARIES = {
         "monitoring across those matters."
     ),
 }
-
-
-def _overall_rating(ratings: list[str]) -> str:
-    if not ratings:
-        return "low"
-    return _RANK_REV[max(_RANK.get(r, 0) for r in ratings)]
 
 
 def _next_march_31(now: datetime) -> datetime:
@@ -74,14 +66,20 @@ def complete(
             detail="Complete the risk-assessment steps before finishing onboarding.",
         )
 
-    # Overall rating from services + customer types (per spec).
-    ratings = [s.inherent_risk_rating for s in assessment.services] + [
-        c.inherent_risk_rating for c in assessment.customer_types
-    ]
-    overall = _overall_rating(ratings)
+    # Overall rating across all four risk categories, using the AUSTRAC / Law Society
+    # combined method (any High -> High; two or more Mediums -> Medium; else Low).
+    ratings = (
+        [s.inherent_risk_rating for s in assessment.services]
+        + [c.inherent_risk_rating for c in assessment.customer_types]
+        + [d.inherent_risk_rating for d in assessment.delivery_channels]
+        + [c.inherent_risk_rating for c in assessment.countries]
+    )
+    overall = aggregate_overall(ratings)
     assessment.overall_risk_rating = overall
-    assessment.summary = _SUMMARIES[overall]
-    assessment.next_review_due_at = now + timedelta(days=3 * 365)
+    assessment.summary = _SUMMARIES.get(overall, _SUMMARIES["low"])
+    # Review cadence depends on the rating (High yearly, Medium 2-yearly, Low 3-yearly).
+    interval_days = review_interval_days(overall)
+    assessment.next_review_due_at = now + timedelta(days=interval_days)
 
     risk_state = db.scalar(select(FirmRiskState).where(FirmRiskState.firm_id == firm_id))
     if risk_state is None:
@@ -101,7 +99,7 @@ def complete(
                     deadline_type="risk_assessment_review",
                     entity_type="risk_assessment",
                     entity_id=assessment.id,
-                    due_at=now + timedelta(days=3 * 365),
+                    due_at=now + timedelta(days=interval_days),
                 ),
                 ComplianceDeadline(
                     firm_id=firm_id,
