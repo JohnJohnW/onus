@@ -464,6 +464,10 @@ class AnalyzeResultOut(BaseModel):
     identity: Optional[IdentityOut] = None
 
 
+class ReviewNoteOut(BaseModel):
+    note: str
+
+
 class MatterCreate(BaseModel):
     client_id: uuid.UUID
     designated_service_key: str

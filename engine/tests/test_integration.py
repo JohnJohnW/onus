@@ -272,6 +272,19 @@ def test_document_extracts_beneficial_owners(client, monkeypatch):
     assert owners and owners[0]["name"] == "Jane Doe", owners
 
 
+def test_risk_review_note(client, monkeypatch):
+    """Onus runs a periodic review and returns a note; the action is logged."""
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    _, token = _signup(client, "Review Note Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    client.post("/risk-assessment/services", json={"services": ["Property transactions"]}, headers=h)
+    res = client.post("/risk-assessment/review", headers=h)
+    assert res.status_code == 200, res.text
+    assert res.json()["note"]
+    activity = client.get("/dashboard/summary", headers=h).json().get("recent_agent_activity", [])
+    assert any("review" in a["summary"].lower() for a in activity), activity
+
+
 def test_document_extracts_identity(client, monkeypatch):
     """The identity purpose returns structured ID details (for one-click CDD record)."""
     monkeypatch.setenv("AI_PROVIDER", "mock")
