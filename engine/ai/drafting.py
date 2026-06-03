@@ -6,6 +6,7 @@ auto-approves a program or auto-lodges a report. Every draft carries a disclaime
 """
 from __future__ import annotations
 
+import json
 import re
 from typing import Optional
 
@@ -231,3 +232,60 @@ async def analyze_uploaded_document(
         system=_SYSTEM,
     )
     return _sanitize(text) + DISCLAIMER
+
+
+_OWNERS_INSTRUCTION = (
+    "Read this document and identify the beneficial owners (the individuals who own or "
+    "control the entity). Return ONLY a JSON array, no prose, where each element is "
+    '{"name": string, "ownership_pct": number or null, "role": string or null}. '
+    "If you cannot determine any, return []."
+)
+
+
+def _parse_owners(text: str) -> list[dict]:
+    """Best-effort parse of a JSON array of owners from the model's reply (tolerates
+    markdown fences and surrounding prose)."""
+    start, end = text.find("["), text.rfind("]")
+    if start == -1 or end == -1 or end < start:
+        return []
+    try:
+        data = json.loads(text[start : end + 1])
+    except Exception:
+        return []
+    owners = []
+    if isinstance(data, list):
+        for item in data:
+            if isinstance(item, dict) and item.get("name"):
+                pct = item.get("ownership_pct")
+                owners.append(
+                    {
+                        "name": str(item["name"])[:200],
+                        "ownership_pct": float(pct) if isinstance(pct, (int, float)) else None,
+                        "role": (str(item["role"])[:100] if item.get("role") else None),
+                    }
+                )
+    return owners[:20]
+
+
+async def extract_beneficial_owners(
+    *, file_bytes: bytes, filename: str, content_type: str
+) -> tuple[list[dict], str]:
+    """Extract beneficial owners as structured data plus a readable summary for review."""
+    raw = await get_ai_provider().analyze_document(
+        file_bytes=file_bytes,
+        filename=filename,
+        content_type=content_type,
+        instruction=_OWNERS_INSTRUCTION,
+        system=_SYSTEM,
+    )
+    owners = _parse_owners(raw)
+    if owners:
+        lines = []
+        for o in owners:
+            pct = f"{o['ownership_pct']:g}%" if o.get("ownership_pct") is not None else "ownership not stated"
+            role = o.get("role") or "role not stated"
+            lines.append(f"- {o['name']} ({pct}, {role})")
+        text = "Onus identified these beneficial owners:\n" + "\n".join(lines)
+    else:
+        text = "Onus could not identify beneficial owners in this document. Review it manually."
+    return owners, _sanitize(text) + DISCLAIMER

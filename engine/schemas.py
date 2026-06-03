@@ -438,9 +438,16 @@ class CddPlanOut(BaseModel):
     plan: str
 
 
+class OwnerOut(BaseModel):
+    name: str
+    ownership_pct: Optional[float] = None
+    role: Optional[str] = None
+
+
 class AnalyzeResultOut(BaseModel):
     purpose: str
     analysis: str
+    owners: List[OwnerOut] = []
 
 
 class MatterCreate(BaseModel):
