@@ -1,7 +1,9 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-const PUBLIC_PATHS = ["/", "/login", "/signup"];
+// Public pages reachable without a session. /hosting is the demo data-residency /
+// expression-of-interest page, which logged-out visitors must be able to see.
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/hosting"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
