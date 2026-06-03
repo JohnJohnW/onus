@@ -1,0 +1,26 @@
+name: Migrate database (manual)
+
+# On-demand schema migration - used to set up the Supabase demo database (and any other
+# externally-hosted Postgres). Set two repository secrets first:
+#   MIGRATE_DATABASE_URL  - the owner connection string (e.g. Supabase direct connection)
+#   ONUS_APP_PASSWORD     - the password for the onus_app role (matches DATABASE_URL)
+# then run this workflow from the Actions tab. It applies `alembic upgrade head`.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install engine dependencies
+        run: pip install -r engine/requirements.txt
+      - name: alembic upgrade head
+        working-directory: engine
+        env:
+          ALEMBIC_DATABASE_URL: ${{ secrets.MIGRATE_DATABASE_URL }}
+          ONUS_APP_PASSWORD: ${{ secrets.ONUS_APP_PASSWORD }}
+        run: alembic upgrade head
