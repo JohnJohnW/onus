@@ -199,6 +199,20 @@ def test_cdd_plan_drafted_by_onus(client, monkeypatch):
     assert any("cdd" in a["summary"].lower() for a in activity), activity
 
 
+def test_risk_assessment_docx_download(client):
+    """The risk assessment downloads as a real .docx (submission-ready document)."""
+    _, token = _signup(client, "Docx Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    client.post("/risk-assessment/services", json={"services": ["Property transactions"]}, headers=h)
+    res = client.get("/risk-assessment/document", headers=h)
+    assert res.status_code == 200, res.text
+    assert (
+        res.headers["content-type"]
+        == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert res.content[:2] == b"PK", res.content[:8]  # .docx is a zip archive
+
+
 def test_document_upload_list_download_and_isolation(client):
     """Upload an evidence file, list and download it, and confirm another firm can
     neither see nor download it; disallowed file types are rejected."""

@@ -10,6 +10,7 @@ bcrypt
 python-jose[cryptography]
 httpx
 openpyxl
+python-docx
 python-multipart
 pytest
 anthropic

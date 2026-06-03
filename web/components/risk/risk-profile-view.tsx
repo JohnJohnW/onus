@@ -232,7 +232,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
                 : "not yet assessed"}
             </span>
           </div>
-          <div className="mt-5">
+          <div className="mt-5 flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -240,12 +240,15 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
             >
               {isDraft ? "Review risk assessment" : "Update risk assessment"}
             </Button>
-            {updateNote && !isDraft && (
-              <p className="mt-2 text-xs text-neutral-500">
-                Re-assessment will be available here soon.
-              </p>
-            )}
+            <Button asChild variant="outline" size="sm">
+              <a href="/api/risk-assessment/document">Download (Word)</a>
+            </Button>
           </div>
+          {updateNote && !isDraft && (
+            <p className="mt-2 text-xs text-neutral-500">
+              Re-assessment will be available here soon.
+            </p>
+          )}
         </CardContent>
       </Card>
 
