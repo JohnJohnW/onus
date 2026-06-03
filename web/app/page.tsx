@@ -103,6 +103,14 @@ export default function Home() {
             outside Australia requires a documented cross-border (APP 8) assessment - see
             the deployment and data-residency guidance in the project README.
           </p>
+          <p className="mt-3 text-sm">
+            <Link
+              href="/hosting"
+              className="text-neutral-200 underline underline-offset-2 hover:text-white"
+            >
+              Hosting and data-residency details
+            </Link>
+          </p>
           <p className="mt-3 text-sm leading-relaxed text-neutral-500">
             Onus is software, not legal advice. Generated content is a starting point for
             a qualified person to review and approve.

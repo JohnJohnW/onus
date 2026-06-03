@@ -623,6 +623,15 @@ def test_data_residency_attestation_flow(client):
     assert client.get("/attestation", headers={"Authorization": f"Bearer {btoken}"}).json() is None
 
 
+def test_demo_eoi_capture(client):
+    """The public demo expression-of-interest endpoint stores a lead and validates email."""
+    assert (
+        client.post("/eoi", json={"email": "prospect@firm.com.au", "firm_name": "X"}).status_code
+        == 200
+    )
+    assert client.post("/eoi", json={"email": "notanemail"}).status_code == 422
+
+
 def test_evaluation_report_resubmit_is_audited(client):
     """Resubmitting an evaluation report replaces the prior one; the supersession must be
     recorded in the immutable audit log even though the old report is not versioned."""

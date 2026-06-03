@@ -767,3 +767,17 @@ class DataResidencyAttestation(Base):
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class DemoEoi(Base):
+    """An expression of interest from a demo visitor in a properly Australian-hosted
+    deployment. Global (not firm-scoped); captured from the public demo banner / page."""
+
+    __tablename__ = "demo_eois"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=True)
+    firm_name = Column(String, nullable=True)
+    email = Column(String, nullable=False)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -193,6 +193,12 @@ Australian-region database, put data-processing agreements in place with every p
 complete an APP 8 assessment, and get the firm's governance to sign off. For most small firms,
 Australian-hosted infrastructure is the simpler and more defensible path.
 
+**Demo mode.** A free public demo can run with the front end on Vercel and the engine and
+database on US free tiers. Set `NEXT_PUBLIC_DEMO=true` on the web deployment to show a
+persistent banner and a `/hosting` page that disclose the US hosting, explain the trade-offs
+versus an Australian deployment, and let visitors register interest (captured in the
+`demo_eois` table) in a properly hosted version. Do not put real client data in the demo.
+
 **Production hardening checklist** (responsibilities beyond what the app itself enforces):
 
 - Inject `JWT_SECRET` and `NEXTAUTH_SECRET` from a secrets manager, not the dev `.env.local`;
