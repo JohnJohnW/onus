@@ -155,6 +155,10 @@ class DashboardSummary(BaseModel):
     upcoming_deadlines: List[UpcomingDeadlineOut]
 
 
+class BriefOut(BaseModel):
+    brief: str
+
+
 # ----- Risk assessment -----
 
 class RiskItemOut(BaseModel):

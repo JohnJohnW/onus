@@ -289,3 +289,29 @@ async def extract_beneficial_owners(
     else:
         text = "Onus could not identify beneficial owners in this document. Review it manually."
     return owners, _sanitize(text) + DISCLAIMER
+
+
+def _brief_block(label: str, items: list[str]) -> str:
+    body = "\n".join(f"- {i}" for i in items) if items else "- (none)"
+    return f"{label}:\n{body}"
+
+
+async def draft_compliance_brief(
+    *, firm_name: Optional[str], did: list[str], needs: list[str], deadlines: list[str]
+) -> str:
+    """Draft a short plain-English compliance brief for the principal from recent activity,
+    what needs attention, and upcoming deadlines."""
+    prompt = (
+        f"Write a short AML/CTF compliance brief for the principal of "
+        f"{firm_name or 'the firm'}. In plain English, cover what Onus has done recently, what "
+        "needs the principal's attention now, and what is coming up. 3 to 5 sentences, direct, "
+        "no preamble or heading. Base it only on the facts below; do not invent anything. If a "
+        "section is empty, say there is nothing there.\n\n"
+        + _brief_block("What Onus did recently", did)
+        + "\n\n"
+        + _brief_block("Needs your attention", needs)
+        + "\n\n"
+        + _brief_block("Upcoming deadlines", deadlines)
+    )
+    text = await get_ai_provider().complete(prompt, system=_SYSTEM)
+    return _sanitize(text) + DISCLAIMER

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { BriefButton } from "@/components/dashboard/brief-button";
 import { CompleteDeadlineButton } from "@/components/dashboard/complete-deadline-button";
 import { Greeting } from "@/components/dashboard/greeting";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
@@ -126,6 +127,13 @@ export default async function DashboardPage() {
           Onus monitors your firm for sanctions, PEP and CDD risk conditions.
         </span>
         <RunMonitoringButton />
+      </div>
+
+      <div className="mb-8 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4">
+        <p className="mb-3 text-sm text-neutral-400">
+          Get a plain-English brief of what Onus has done and what needs your attention.
+        </p>
+        <BriefButton />
       </div>
 
       {/* Section 1 - Action required */}
