@@ -329,6 +329,12 @@ export function ClientDetailView({
     screening_note: string;
     plan: string;
   } | null>(null);
+  const [onboarding, setOnboarding] = useState(false);
+  const [pack, setPack] = useState<{
+    sanctions: ScreenResult | null;
+    pep: ScreenResult | null;
+    cdd: { level: string; edd_reason: string | null; screening_note: string; plan: string } | null;
+  } | null>(null);
   const latestCdd = client.cdd_checks[0];
 
   async function post(path: string, body: unknown) {
@@ -438,6 +444,29 @@ export function ClientDetailView({
     }
   }
 
+  // One-click onboarding: Onus screens sanctions + PEP, works out the CDD level, and
+  // drafts the CDD plan in a single step, then presents the pack for review. Each step is
+  // a real backend action (recorded in the audit trail); Onus never clears or signs off.
+  async function prepareOnboarding() {
+    setOnboarding(true);
+    setActionError(null);
+    setPack(null);
+    try {
+      const [san, pep] = await Promise.all([
+        screenName(client.display_name, "sanctions", "client", client.id),
+        screenName(client.display_name, "pep", "client", client.id),
+      ]);
+      const res = await fetch(`/api/clients/${client.id}/cdd-plan`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setActionError((data && data.detail) || "Could not prepare onboarding. Please try again.");
+      }
+      setPack({ sanctions: san, pep, cdd: res.ok ? data : null });
+    } finally {
+      setOnboarding(false);
+    }
+  }
+
   async function addParty(e: React.FormEvent) {
     e.preventDefault();
     if (!party.name.trim()) return;
@@ -509,6 +538,64 @@ export function ClientDetailView({
           Sanctions match - you must not provide a designated service to this client. CDD is blocked.
         </div>
       )}
+
+      {/* One-click onboarding orchestrator */}
+      <section className="mb-8">
+        <Card className="border-neutral-800 bg-neutral-900/50">
+          <CardContent className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm">
+                <p className="text-neutral-200">Onboard with Onus</p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  One click: Onus screens sanctions and PEP, works out the CDD level, and drafts
+                  the CDD plan for you to review.
+                </p>
+              </div>
+              <Button size="sm" disabled={busy || onboarding} onClick={prepareOnboarding}>
+                {onboarding ? (
+                  <>
+                    <Spinner className="mr-2" />
+                    Working...
+                  </>
+                ) : (
+                  "Prepare onboarding"
+                )}
+              </Button>
+            </div>
+            {pack && (
+              <div className="mt-4 space-y-3 border-t border-neutral-800 pt-4 text-sm">
+                {pack.sanctions && (
+                  <div className="space-y-1">
+                    <p className="text-xs uppercase tracking-wide text-neutral-500">Sanctions</p>
+                    <ScreenResultView result={pack.sanctions} />
+                  </div>
+                )}
+                {pack.pep && (
+                  <div className="space-y-1">
+                    <p className="text-xs uppercase tracking-wide text-neutral-500">PEP</p>
+                    <ScreenResultView result={pack.pep} />
+                  </div>
+                )}
+                {pack.cdd && (
+                  <div className="border-t border-neutral-800 pt-3">
+                    <p className="text-neutral-200">
+                      Required CDD level: <span className="capitalize">{pack.cdd.level}</span>
+                    </p>
+                    {pack.cdd.edd_reason && (
+                      <p className="mt-1 text-xs text-amber-300">{pack.cdd.edd_reason}</p>
+                    )}
+                    <p className="mt-2 whitespace-pre-wrap text-neutral-300">{pack.cdd.plan}</p>
+                  </div>
+                )}
+                <p className="text-xs text-neutral-600">
+                  Onus prepared this for you to review and verify. It does not screen-clear,
+                  complete CDD, or act on your behalf.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
       {/* Sanctions screening */}
       <section className="mb-8">
