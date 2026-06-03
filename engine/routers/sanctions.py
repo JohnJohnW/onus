@@ -28,7 +28,7 @@ from schemas import SanctionsStatusOut, ScreenRequest, ScreenResultOut
 
 router = APIRouter()
 
-DEFAULT_DFAT_URL = "https://www.dfat.gov.au/sites/default/files/regulation8_consolidated.xlsx"
+DEFAULT_DFAT_URL = "https://www.dfat.gov.au/sites/default/files/Australian_Sanctions_Consolidated_List.xlsx"
 
 # list_type -> (default source name, env var for the fetch URL, built-in default URL, label)
 _LISTS = {
