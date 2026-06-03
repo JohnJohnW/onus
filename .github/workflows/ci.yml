@@ -52,6 +52,8 @@ jobs:
       # non-superuser onus_app role so row-level security actually applies.
       ALEMBIC_DATABASE_URL: postgresql://onus:onus_local@localhost:5432/onus
       DATABASE_URL: postgresql://onus_app:onus_local@localhost:5432/onus
+      # Token-minting tests (signup/login) need a signing secret; this is a CI-only value.
+      JWT_SECRET: ci-test-secret-not-for-production-0123456789abcdef
     steps:
       - uses: actions/checkout@v5
 
