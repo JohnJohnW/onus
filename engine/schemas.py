@@ -462,6 +462,7 @@ class AnalyzeResultOut(BaseModel):
     analysis: str
     owners: List[OwnerOut] = []
     identity: Optional[IdentityOut] = None
+    source_of_funds: Optional[str] = None
 
 
 class ReviewNoteOut(BaseModel):

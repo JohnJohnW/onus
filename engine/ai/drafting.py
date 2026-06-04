@@ -411,3 +411,26 @@ async def draft_review_note(
     )
     text = await get_ai_provider().complete(prompt, system=_SYSTEM)
     return _sanitize(text) + DISCLAIMER
+
+
+_SOF_INSTRUCTION = (
+    "Read this document and write a concise source-of-funds / source-of-wealth statement for "
+    "the client file: where the funds or wealth come from, based only on this document. 1 to 3 "
+    "sentences, factual. If the document does not establish a source of funds, say so plainly."
+)
+
+
+async def extract_source_of_funds(
+    *, file_bytes: bytes, filename: str, content_type: str
+) -> tuple[str, str]:
+    """Extract a concise source-of-funds statement to save on the client file, plus the same
+    text with the disclaimer for display. Returns (statement, display_text)."""
+    raw = await get_ai_provider().analyze_document(
+        file_bytes=file_bytes,
+        filename=filename,
+        content_type=content_type,
+        instruction=_SOF_INSTRUCTION,
+        system=_SYSTEM,
+    )
+    statement = _sanitize(raw).strip()
+    return statement, statement + DISCLAIMER

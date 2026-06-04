@@ -285,6 +285,19 @@ def test_risk_review_note(client, monkeypatch):
     assert any("review" in a["summary"].lower() for a in activity), activity
 
 
+def test_document_extracts_source_of_funds(client, monkeypatch):
+    """The source-of-funds purpose returns a statement to save on the client file."""
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    _, token = _signup(client, "SoF Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    files = {"file": ("statement.pdf", b"%PDF salary deposits from employer Acme", "application/pdf")}
+    res = client.post(
+        "/documents/analyze", data={"purpose": "source_of_funds"}, files=files, headers=h
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["source_of_funds"]
+
+
 def test_document_extracts_identity(client, monkeypatch):
     """The identity purpose returns structured ID details (for one-click CDD record)."""
     monkeypatch.setenv("AI_PROVIDER", "mock")
