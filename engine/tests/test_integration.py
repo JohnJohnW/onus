@@ -213,6 +213,16 @@ def test_risk_assessment_docx_download(client):
     assert res.content[:2] == b"PK", res.content[:8]  # .docx is a zip archive
 
 
+def test_evaluation_docx_download(client):
+    """The independent evaluation downloads as a real .docx."""
+    _, token = _signup(client, "Eval Docx Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    eid = client.post("/evaluations", json={}, headers=h).json()["id"]
+    res = client.get(f"/evaluations/{eid}/document", headers=h)
+    assert res.status_code == 200, res.text
+    assert res.content[:2] == b"PK", res.content[:8]
+
+
 def test_program_docx_download(client):
     """The compliance program downloads as a real .docx."""
     _, token = _signup(client, "Program Docx Firm")
