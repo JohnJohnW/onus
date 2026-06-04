@@ -1,5 +1,6 @@
 import { ChangePasswordCard } from "@/components/settings/change-password-card";
 import { DataResidencyPanel } from "@/components/settings/data-residency-panel";
+import { EnrolmentGuide } from "@/components/settings/enrolment-guide";
 import { GovernancePanel } from "@/components/settings/governance-panel";
 import { SanctionsPanel } from "@/components/settings/sanctions-panel";
 import { SettingsForm } from "@/components/settings/settings-form";
@@ -44,10 +45,6 @@ async function getSettings(token: string, firmId: string): Promise<SettingsData 
   }
 }
 
-function titleize(s: string): string {
-  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 export default async function SettingsPage() {
   const session = await auth();
   const data =
@@ -88,15 +85,10 @@ export default async function SettingsPage() {
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
           AML/CTF enrolment
         </h2>
-        <Card className="border-neutral-800 bg-neutral-900/50">
-          <CardContent className="flex items-center justify-between gap-4 p-5 text-sm">
-            <span className="text-neutral-300">AUSTRAC enrolment</span>
-            <span className="text-neutral-100">
-              {titleize(firm.enrolment_status)}
-              {firm.austrac_enrolment_number ? ` - ${firm.austrac_enrolment_number}` : ""}
-            </span>
-          </CardContent>
-        </Card>
+        <EnrolmentGuide
+          enrolmentStatus={firm.enrolment_status}
+          austracNumber={firm.austrac_enrolment_number}
+        />
       </section>
 
       <section>
