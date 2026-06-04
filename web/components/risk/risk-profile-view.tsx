@@ -271,7 +271,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
           </div>
           {updateNote && !isDraft && (
             <p className="mt-2 text-xs text-neutral-500">
-              Re-assessment will be available here soon.
+              Run a review with Onus to re-assess, or re-do onboarding to change your inputs.
             </p>
           )}
           {reviewNote && (

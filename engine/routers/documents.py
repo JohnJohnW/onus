@@ -14,7 +14,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from agent_log import record_agent_task
-from ai.drafting import analyze_uploaded_document, extract_beneficial_owners, extract_identity
+from ai.drafting import (
+    analyze_uploaded_document,
+    extract_beneficial_owners,
+    extract_identity,
+    extract_source_of_funds,
+)
 from auth.dependencies import get_current_user
 from database import get_db
 from models import Document, User
@@ -105,6 +110,7 @@ async def analyze(
     ctype = file.content_type or "application/octet-stream"
     owners: list = []
     identity = None
+    sof = None
     try:
         if purpose == "beneficial_owners":
             owners, analysis = await extract_beneficial_owners(
@@ -112,6 +118,10 @@ async def analyze(
             )
         elif purpose == "identity":
             identity, analysis = await extract_identity(
+                file_bytes=data, filename=fname, content_type=ctype
+            )
+        elif purpose == "source_of_funds":
+            sof, analysis = await extract_source_of_funds(
                 file_bytes=data, filename=fname, content_type=ctype
             )
         else:
@@ -142,6 +152,7 @@ async def analyze(
         analysis=analysis,
         owners=[OwnerOut(**o) for o in owners],
         identity=IdentityOut(**identity) if identity else None,
+        source_of_funds=sof,
     )
 
 

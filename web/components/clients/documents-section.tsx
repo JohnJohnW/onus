@@ -41,6 +41,8 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
   const [addingOwners, setAddingOwners] = useState(false);
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [recording, setRecording] = useState(false);
+  const [sourceOfFunds, setSourceOfFunds] = useState<string | null>(null);
+  const [savingSof, setSavingSof] = useState(false);
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -82,6 +84,7 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
     setAnalysis(null);
     setOwners([]);
     setIdentity(null);
+    setSourceOfFunds(null);
     const fd = new FormData();
     fd.append("file", file);
     fd.append("purpose", purpose);
@@ -93,6 +96,7 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
       setAnalysis(d.analysis ?? null);
       setOwners(d.owners ?? []);
       setIdentity(d.identity ?? null);
+      setSourceOfFunds(d.source_of_funds ?? null);
     } else {
       const d = await res.json().catch(() => null);
       setErr((d && d.detail) || "Analysis failed.");
@@ -145,6 +149,26 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
     }
   }
 
+  async function saveSourceOfFunds() {
+    if (!sourceOfFunds) return;
+    setSavingSof(true);
+    setErr(null);
+    const res = await fetch(`/api/clients/${entityId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_of_funds: sourceOfFunds }),
+    });
+    setSavingSof(false);
+    if (res.ok) {
+      setSourceOfFunds(null);
+      setAnalysis(null);
+      router.refresh();
+    } else {
+      const d = await res.json().catch(() => null);
+      setErr((d && d.detail) || "Could not save source of funds.");
+    }
+  }
+
   return (
     <Card className="border-neutral-800 bg-neutral-900/50">
       <CardContent className="space-y-3 p-5 text-sm">
@@ -194,6 +218,7 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
               <option value="summary">Summarise and flag risks</option>
               <option value="beneficial_owners">Extract beneficial owners</option>
               <option value="identity">Check ID details</option>
+              <option value="source_of_funds">Summarise source of funds</option>
             </select>
             <input
               type="file"
@@ -234,6 +259,18 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
                     className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-100 hover:bg-neutral-800 disabled:opacity-50"
                   >
                     {recording ? "Recording..." : "Record CDD with these details"}
+                  </button>
+                </div>
+              )}
+              {sourceOfFunds && entityType === "client" && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={saveSourceOfFunds}
+                    disabled={savingSof}
+                    className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-100 hover:bg-neutral-800 disabled:opacity-50"
+                  >
+                    {savingSof ? "Saving..." : "Save as source of funds"}
                   </button>
                 </div>
               )}
