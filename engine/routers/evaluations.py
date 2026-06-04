@@ -5,11 +5,13 @@ from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from database import get_db
+from docgen import build_evaluation_docx
 from models import (
     AuditLog,
     EvaluationFinding,
@@ -147,6 +149,23 @@ def schedule_evaluation(
     db.commit()
     db.refresh(e)
     return _eval_out(e)
+
+
+@router.get("/{eval_id}/document")
+def download_evaluation_document(
+    eval_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Generate the independent-evaluation record as a Word (.docx) document."""
+    e = _get_eval(db, current_user.firm_id, eval_id)
+    firm = db.get(Firm, current_user.firm_id)
+    content = build_evaluation_docx(e, firm.name if firm else "Your firm")
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="independent-evaluation.docx"'},
+    )
 
 
 @router.post("/{eval_id}/evaluator", response_model=EvaluationOut)

@@ -302,7 +302,15 @@ function EvaluationCard({ ev }: { ev: Evaluation }) {
               <span className="ml-2 text-xs text-neutral-500">due by {ev.statutory_deadline}</span>
             )}
           </p>
-          <span className="text-xs capitalize text-neutral-400">{ev.status.replace(/_/g, " ")}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs capitalize text-neutral-400">{ev.status.replace(/_/g, " ")}</span>
+            <a
+              href={`/api/evaluations/${ev.id}/document`}
+              className="text-xs text-neutral-400 hover:text-neutral-200"
+            >
+              Download (Word)
+            </a>
+          </div>
         </div>
 
         {/* Evaluator */}
