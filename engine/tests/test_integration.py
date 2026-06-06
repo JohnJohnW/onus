@@ -282,6 +282,31 @@ def test_document_extracts_beneficial_owners(client, monkeypatch):
     assert owners and owners[0]["name"] == "Jane Doe", owners
 
 
+def test_agent_review_disabled_by_default(client):
+    """The managed-agent review is off unless MANAGED_AGENTS_ENABLED is set."""
+    _, token = _signup(client, "No Managed Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    res = client.post("/risk-assessment/agent-review", headers=h)
+    assert res.status_code == 400, res.text
+
+
+def test_agent_review_managed_mock(client, monkeypatch):
+    """With the flag on and the mock provider, the cloud-session flow starts and polls to a
+    done review note - covers the orchestration without the live beta platform."""
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    monkeypatch.setenv("MANAGED_AGENTS_ENABLED", "true")
+    _, token = _signup(client, "Agent Review Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    client.post("/risk-assessment/services", json={"services": ["Property transactions"]}, headers=h)
+    start = client.post("/risk-assessment/agent-review", headers=h)
+    assert start.status_code == 200, start.text
+    sid = start.json()["session_id"]
+    res = client.get(f"/risk-assessment/agent-review/{sid}", headers=h)
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "done"
+    assert res.json()["note"]
+
+
 def test_risk_review_note(client, monkeypatch):
     """Onus runs a periodic review and returns a note; the action is logged."""
     monkeypatch.setenv("AI_PROVIDER", "mock")

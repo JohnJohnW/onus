@@ -1,6 +1,7 @@
 """Risk assessment - current state, onboarding inputs, and approval flow."""
 from __future__ import annotations
 
+import os
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
@@ -11,11 +12,18 @@ from sqlalchemy.orm import Session
 
 from agent_log import record_agent_task
 from ai.drafting import draft_review_note, draft_risk_assessment_summary
+from ai.managed import (
+    cleanup_review_run,
+    managed_agents_enabled,
+    poll_review_run,
+    start_review_run,
+)
 from auth.dependencies import get_current_user, require_approver
 from database import get_db
 from deadlines import complete_deadlines
 from docgen import build_risk_assessment_docx
 from models import (
+    AgentTask,
     AuditLog,
     AustracCommunication,
     ComplianceDeadline,
@@ -31,6 +39,8 @@ from models import (
     User,
 )
 from schemas import (
+    AgentReviewStartOut,
+    AgentReviewStatusOut,
     CommunicationIn,
     CommunicationOut,
     CountriesRequest,
@@ -537,6 +547,93 @@ async def run_review(
     )
     db.commit()
     return ReviewNoteOut(note=note)
+
+
+@router.post("/agent-review", response_model=AgentReviewStartOut)
+async def agent_review_start(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AgentReviewStartOut:
+    """Start an autonomous review on the Claude Managed Agents platform (cloud session).
+    Beta + feature-flagged; the session runs in Anthropic's managed sandbox. Drafts only -
+    the senior manager still approves."""
+    if not managed_agents_enabled():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Managed Agents review is not enabled.")
+    assessment = _current(db, current_user.firm_id)
+    if assessment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No risk assessment found.")
+    firm = db.get(Firm, current_user.firm_id)
+
+    def fmt(rows, attr) -> str:
+        return "; ".join(f"{getattr(r, attr)} ({r.inherent_risk_rating})" for r in rows) or "none"
+
+    task = (
+        f"Review the AML/CTF risk assessment for {firm.name if firm else 'the firm'} and write a "
+        f"periodic-review note.\n"
+        f"Overall rating: {assessment.overall_risk_rating}.\n"
+        f"Designated services: {fmt(assessment.services, 'designated_service_type')}.\n"
+        f"Customer types: {fmt(assessment.customer_types, 'customer_type')}.\n"
+        f"Delivery channels: {fmt(assessment.delivery_channels, 'channel_type')}.\n"
+        f"Countries: {fmt(assessment.countries, 'country')}.\n"
+        f"Proliferation financing: {assessment.pf_risk_rating or 'not yet assessed'}.\n"
+        f"Last approved: "
+        f"{assessment.approved_at.date().isoformat() if assessment.approved_at else 'not yet approved'}."
+    )
+    model = os.environ.get("ANTHROPIC_MODEL") or "claude-sonnet-4-6"
+    try:
+        ids = await start_review_run(model=model, task=task)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not start the managed-agent review. Please try again.",
+        )
+    record_agent_task(
+        db,
+        current_user.firm_id,
+        task_type="agent_review",
+        summary="Started an autonomous risk review (Managed Agents)",
+        human_action_required=True,
+        human_action_type="review_risk_assessment",
+        input_state=ids,
+    )
+    db.commit()
+    return AgentReviewStartOut(session_id=ids["session_id"])
+
+
+@router.get("/agent-review/{session_id}", response_model=AgentReviewStatusOut)
+async def agent_review_status(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AgentReviewStatusOut:
+    """Poll a managed-agent review (firm-scoped via the stored session). When the agent's
+    turn is done, return its note and tear down the session/agent/environment."""
+    if not managed_agents_enabled():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Managed Agents review is not enabled.")
+    task = db.scalar(
+        select(AgentTask).where(
+            AgentTask.firm_id == current_user.firm_id,
+            AgentTask.input_state["session_id"].astext == session_id,
+        )
+    )
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review session not found.")
+    ids = task.input_state or {}
+    try:
+        result = await poll_review_run(session_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not check the review right now. Please try again.",
+        )
+    if result["done"]:
+        await cleanup_review_run(
+            session_id=session_id,
+            agent_id=ids.get("agent_id", ""),
+            environment_id=ids.get("environment_id", ""),
+        )
+        return AgentReviewStatusOut(status="done", note=result["note"])
+    return AgentReviewStatusOut(status="running", note=None)
 
 
 @router.post("/methodology", response_model=RiskAssessmentOut)
