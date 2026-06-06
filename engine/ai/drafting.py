@@ -257,10 +257,12 @@ def _parse_owners(text: str) -> list[dict]:
         for item in data:
             if isinstance(item, dict) and item.get("name"):
                 pct = item.get("ownership_pct")
+                # bool is a subclass of int - exclude it so a JSON `true` is not read as 1.0.
+                numeric_pct = isinstance(pct, (int, float)) and not isinstance(pct, bool)
                 owners.append(
                     {
                         "name": str(item["name"])[:200],
-                        "ownership_pct": float(pct) if isinstance(pct, (int, float)) else None,
+                        "ownership_pct": float(pct) if numeric_pct else None,
                         "role": (str(item["role"])[:100] if item.get("role") else None),
                     }
                 )
@@ -362,6 +364,8 @@ async def extract_identity(*, file_bytes: bytes, filename: str, content_type: st
         system=_SYSTEM,
     )
     ident = _parse_identity(raw)
+    if ident and not any(ident.values()):
+        ident = None  # all fields null - treat as nothing extracted
     if ident:
         labels = [
             ("Name", ident.get("full_name")),
