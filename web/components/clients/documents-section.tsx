@@ -107,22 +107,28 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
     setAddingOwners(true);
     setErr(null);
     try {
+      let failed = 0;
       for (const o of owners) {
-        await fetch(`/api/clients/${entityId}/parties`, {
+        const res = await fetch(`/api/clients/${entityId}/parties`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             role: "beneficial_owner",
             name: o.name,
+            ownership_pct: o.ownership_pct,
             bo_basis: o.ownership_pct != null && o.ownership_pct >= 25 ? "ownership_25pct" : "control",
             is_pep: false,
             pep_kind: null,
             sanctions_hit: false,
           }),
         });
+        if (!res.ok) failed++;
       }
       setOwners([]);
       setAnalysis(null);
+      if (failed > 0) {
+        setErr(`Could not add ${failed} owner${failed === 1 ? "" : "s"} - please check and retry.`);
+      }
       router.refresh();
     } finally {
       setAddingOwners(false);
