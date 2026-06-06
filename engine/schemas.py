@@ -469,6 +469,15 @@ class ReviewNoteOut(BaseModel):
     note: str
 
 
+class AgentReviewStartOut(BaseModel):
+    session_id: str
+
+
+class AgentReviewStatusOut(BaseModel):
+    status: str
+    note: Optional[str] = None
+
+
 class MatterCreate(BaseModel):
     client_id: uuid.UUID
     designated_service_key: str
