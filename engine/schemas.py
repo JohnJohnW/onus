@@ -479,6 +479,7 @@ class ReviewActionOut(BaseModel):
     title: str
     detail: str
     priority: str
+    action_key: str = "none"
 
 
 class ReviewOut(BaseModel):

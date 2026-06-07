@@ -1,120 +1,110 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { AiAction } from "@/components/ai/action-link";
+import {
+  AiChecklist,
+  AiDisclaimer,
+  AiResultCard,
+  FindingCard,
+  SectionLabel,
+  VerdictBanner,
+} from "@/components/ai/result-card";
+import { SEVERITY_ORDER, severityOf } from "@/components/ai/severity";
 
 export type Review = {
   overall_rating: string;
   headline: string;
   drivers: { factor: string; rating: string; note: string }[];
-  recommended_actions: { title: string; detail: string; priority: string }[];
+  recommended_actions: { title: string; detail: string; priority: string; action_key?: string }[];
   checks: string[];
   recommendation: string;
 };
 
-const RATING: Record<string, string> = {
-  high: "border-red-500/30 bg-red-500/10 text-red-300",
-  medium: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  low: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  unassessed: "border-neutral-600/40 bg-neutral-700/20 text-neutral-300",
+// Client-owned registry: the engine sends only a symbolic action_key (validated server-side
+// against an allow-list); the URL/method lives here, so nothing the model emits is ever fetched.
+const REVIEW_ACTIONS: Record<string, AiAction> = {
+  approve_assessment: {
+    mode: "call",
+    label: "Approve assessment",
+    endpoint: "/api/risk-assessment/approve",
+    method: "POST",
+    doneLabel: "Approved",
+  },
+  rerun_review: {
+    mode: "call",
+    label: "Re-run review",
+    endpoint: "/api/risk-assessment/review",
+    method: "POST",
+    doneLabel: "Re-run",
+  },
+  draft_summary: {
+    mode: "call",
+    label: "Draft summary",
+    endpoint: "/api/risk-assessment/draft-summary",
+    method: "POST",
+    doneLabel: "Drafted",
+  },
+  update_assessment: { mode: "navigate", label: "Update risk assessment", href: "/risk-profile" },
+  review_clients: { mode: "navigate", label: "Review clients", href: "/clients" },
+  open_program: { mode: "navigate", label: "Open compliance program", href: "/compliance-program" },
 };
 
-function Chip({ value }: { value: string }) {
-  const cls = RATING[(value || "").toLowerCase()] ?? RATING.unassessed;
-  return (
-    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}>
-      {value}
-    </span>
-  );
+function bySeverity(a: { sev?: string }, b: { sev?: string }) {
+  return SEVERITY_ORDER[severityOf(a.sev)] - SEVERITY_ORDER[severityOf(b.sev)];
 }
 
-function SectionLabel({ children }: { children: ReactNode }) {
-  return (
-    <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-neutral-500">{children}</p>
-  );
-}
-
-// Renders a structured periodic review (schema-validated JSON from Onus) as interactive UI:
-// a rating chip, driver rows, action cards, and a tickable checklist - instead of a text dump.
 export function ReviewResult({ review }: { review: Review }) {
-  const [done, setDone] = useState<Record<number, boolean>>({});
+  const drivers = [...review.drivers].sort((a, b) => bySeverity({ sev: a.rating }, { sev: b.rating }));
+  const actions = [...review.recommended_actions].sort((a, b) =>
+    bySeverity({ sev: a.priority }, { sev: b.priority })
+  );
+  const needAttention = actions.filter((a) => severityOf(a.priority) !== "low").length;
 
   return (
-    <div className="mt-3 space-y-4 rounded-lg border border-neutral-800 bg-neutral-900 p-4 text-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Review by Onus</p>
-          <p className="mt-1 text-neutral-200">{review.headline}</p>
-        </div>
-        <Chip value={review.overall_rating} />
-      </div>
+    <AiResultCard title="Review by Onus">
+      <VerdictBanner rating={review.overall_rating} headline={review.headline} />
 
-      {review.drivers.length > 0 && (
-        <div>
+      {drivers.length > 0 && (
+        <div className="space-y-2">
           <SectionLabel>What is driving the rating</SectionLabel>
-          <div className="space-y-1.5">
-            {review.drivers.map((d, i) => (
-              <div
-                key={i}
-                className="flex items-start justify-between gap-3 rounded-md border border-neutral-800 bg-neutral-950/40 px-3 py-2"
-              >
-                <div>
-                  <span className="text-neutral-200">{d.factor}</span>
-                  <p className="text-xs text-neutral-500">{d.note}</p>
-                </div>
-                <Chip value={d.rating} />
-              </div>
-            ))}
-          </div>
+          {drivers.map((d, i) => (
+            <FindingCard key={i} severity={d.rating} title={d.factor} detail={d.note} />
+          ))}
         </div>
       )}
 
-      {review.recommended_actions.length > 0 && (
-        <div>
-          <SectionLabel>Recommended actions</SectionLabel>
-          <div className="space-y-1.5">
-            {review.recommended_actions.map((a, i) => (
-              <div key={i} className="rounded-md border border-neutral-800 bg-neutral-950/40 px-3 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-neutral-100">{a.title}</span>
-                  <Chip value={a.priority} />
-                </div>
-                <p className="mt-0.5 text-xs text-neutral-400">{a.detail}</p>
-              </div>
-            ))}
-          </div>
+      {actions.length > 0 && (
+        <div className="space-y-2">
+          <SectionLabel>
+            Recommended actions{needAttention > 0 ? ` - ${needAttention} need attention` : ""}
+          </SectionLabel>
+          {actions.map((a, i) => (
+            <FindingCard
+              key={i}
+              severity={a.priority}
+              title={a.title}
+              detail={a.detail}
+              action={a.action_key && a.action_key !== "none" ? REVIEW_ACTIONS[a.action_key] : undefined}
+            />
+          ))}
         </div>
       )}
 
       {review.checks.length > 0 && (
-        <div>
+        <div className="space-y-1.5">
           <SectionLabel>Check since last approval</SectionLabel>
-          <ul className="space-y-1">
-            {review.checks.map((c, i) => (
-              <li key={i}>
-                <label className="flex cursor-pointer items-start gap-2 text-neutral-300">
-                  <input
-                    type="checkbox"
-                    checked={!!done[i]}
-                    onChange={() => setDone((s) => ({ ...s, [i]: !s[i] }))}
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-neutral-700 bg-neutral-900"
-                  />
-                  <span className={done[i] ? "text-neutral-500 line-through" : ""}>{c}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
+          <AiChecklist items={review.checks} />
         </div>
       )}
 
       <div className="rounded-md border border-neutral-700 bg-neutral-800/40 px-3 py-2">
         <SectionLabel>Recommendation</SectionLabel>
-        <p className="text-neutral-200">{review.recommendation}</p>
+        <p className="mt-0.5 text-neutral-200">{review.recommendation}</p>
       </div>
 
-      <p className="text-xs text-neutral-600">
-        A draft from Onus. Approving the assessment discharges the review and reschedules the next
-        one.
-      </p>
-    </div>
+      <AiDisclaimer>
+        A draft from Onus. Approving the assessment discharges the review and reschedules the next one.
+      </AiDisclaimer>
+    </AiResultCard>
   );
 }
