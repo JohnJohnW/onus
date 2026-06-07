@@ -183,7 +183,8 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
           )}
           {changeRequested && (
             <p className="mt-3 text-xs text-amber-200/80">
-              Your change request has been recorded - Onus will revisit the assessment.
+              Your change request has been recorded. Update your inputs (re-do onboarding) or run a
+              review with Onus to revise the assessment.
             </p>
           )}
         </div>
