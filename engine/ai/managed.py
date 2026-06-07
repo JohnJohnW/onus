@@ -18,7 +18,6 @@ API + our own engine.
 """
 from __future__ import annotations
 
-import json
 import os
 import uuid
 
@@ -119,8 +118,11 @@ def _extract_text(events) -> str:
     beta event shape varies, so this skips user/thinking/tool/status events and collects
     text from the rest (top-level content or a nested message). If nothing is found, it
     reports the event types seen so the shape can be pinned down."""
-    items = events.get("events", events) if isinstance(events, dict) else events
-    if not isinstance(items, list):
+    if isinstance(events, dict):
+        items = events.get("data") or events.get("events") or []
+    elif isinstance(events, list):
+        items = events
+    else:
         items = []
     texts: list[str] = []
     types_seen: list[str] = []
@@ -158,17 +160,7 @@ async def poll_review_run(session_id: str) -> dict:
         if status not in ("idle", "terminated", "completed", "ended"):
             return {"done": False, "note": None}
         events = await _get(client, f"/sessions/{session_id}/events")
-        note = _extract_text(events)
-        if "no readable text" in note:
-            # Temporary: surface the raw beta shapes (truncated) so the parser can be
-            # pinned to the real session/events structure, then this block is removed.
-            dbg = {
-                "status": status,
-                "session": json.dumps(session, default=str)[:1100],
-                "events": json.dumps(events, default=str)[:1600],
-            }
-            note = note + "\n\nDEBUG (beta shapes): " + json.dumps(dbg)[:2900]
-        return {"done": True, "note": note}
+        return {"done": True, "note": _extract_text(events)}
 
 
 async def cleanup_review_run(*, session_id: str, agent_id: str, environment_id: str) -> None:
