@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { Markdown } from "@/components/ui/markdown";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDate } from "@/lib/format";
 
@@ -241,7 +242,7 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
           </div>
           {analysis && (
             <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-xs">
-              <p className="whitespace-pre-wrap text-neutral-300">{analysis}</p>
+              <Markdown content={analysis} />
               {owners.length > 0 && entityType === "client" && (
                 <div className="mt-3">
                   <button

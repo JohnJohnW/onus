@@ -9,6 +9,7 @@ import { DocumentsSection } from "@/components/clients/documents-section";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Markdown } from "@/components/ui/markdown";
 import { Spinner } from "@/components/ui/spinner";
 
 type Party = {
@@ -584,7 +585,9 @@ export function ClientDetailView({
                     {pack.cdd.edd_reason && (
                       <p className="mt-1 text-xs text-amber-300">{pack.cdd.edd_reason}</p>
                     )}
-                    <p className="mt-2 whitespace-pre-wrap text-neutral-300">{pack.cdd.plan}</p>
+                    <div className="mt-2">
+                      <Markdown content={pack.cdd.plan} />
+                    </div>
                   </div>
                 )}
                 <p className="text-xs text-neutral-600">
@@ -709,7 +712,9 @@ export function ClientDetailView({
                 </p>
                 {cddPlan.edd_reason && <p className="mt-1 text-xs text-amber-300">{cddPlan.edd_reason}</p>}
                 <p className="mt-1 text-xs text-neutral-400">{cddPlan.screening_note}</p>
-                <p className="mt-3 whitespace-pre-wrap text-neutral-300">{cddPlan.plan}</p>
+                <div className="mt-3">
+                  <Markdown content={cddPlan.plan} />
+                </div>
                 <p className="mt-3 text-xs text-neutral-600">
                   A plan for you to follow and verify. Onus does not complete or sign off CDD - record it
                   above once done.

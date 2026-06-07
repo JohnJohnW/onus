@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Markdown } from "@/components/ui/markdown";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
 
@@ -189,7 +190,9 @@ function ReportRow({ report }: { report: Report }) {
       ) : (
         report.type === "smr" &&
         report.grounds && (
-          <p className="mt-2 whitespace-pre-wrap text-xs text-neutral-400">{report.grounds}</p>
+          <div className="mt-2 text-xs text-neutral-400">
+            <Markdown content={report.grounds} />
+          </div>
         )
       )}
       {report.type === "smr" && (

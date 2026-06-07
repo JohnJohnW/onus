@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Markdown } from "@/components/ui/markdown";
 import { Spinner } from "@/components/ui/spinner";
 
 export function BriefButton() {
@@ -38,7 +39,7 @@ export function BriefButton() {
       {err && <p className="mt-2 text-xs text-red-400">Could not generate a brief right now.</p>}
       {brief && (
         <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-sm">
-          <p className="whitespace-pre-wrap text-neutral-300">{brief}</p>
+          <Markdown content={brief} />
           <p className="mt-2 text-xs text-neutral-600">
             Drafted by Onus from your recent activity. Review before relying on it.
           </p>
