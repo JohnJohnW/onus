@@ -155,8 +155,17 @@ class DashboardSummary(BaseModel):
     upcoming_deadlines: List[UpcomingDeadlineOut]
 
 
+class BriefItemOut(BaseModel):
+    severity: str
+    title: str
+    detail: str
+    action_key: str = "none"
+
+
 class BriefOut(BaseModel):
-    brief: str
+    brief: Optional[str] = None
+    headline: Optional[str] = None
+    items: List[BriefItemOut] = []
 
 
 # ----- Risk assessment -----
