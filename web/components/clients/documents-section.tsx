@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { AiDisclaimer, AiResultCard, FindingCard, SectionLabel } from "@/components/ai/result-card";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Markdown } from "@/components/ui/markdown";
 import { Spinner } from "@/components/ui/spinner";
@@ -241,50 +243,90 @@ export function DocumentsSection({ entityType, entityId }: { entityType: string;
             )}
           </div>
           {analysis && (
-            <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-xs">
-              <Markdown content={analysis} />
-              {owners.length > 0 && entityType === "client" && (
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={addOwners}
-                    disabled={addingOwners}
-                    className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-100 hover:bg-neutral-800 disabled:opacity-50"
-                  >
-                    {addingOwners
-                      ? "Adding..."
-                      : `Add ${owners.length} beneficial owner${owners.length === 1 ? "" : "s"} as parties`}
-                  </button>
+            <AiResultCard title="Analysis by Onus">
+              {owners.length > 0 ? (
+                <div className="space-y-2">
+                  <SectionLabel>Beneficial owners found</SectionLabel>
+                  {owners.map((o, i) => (
+                    <FindingCard
+                      key={i}
+                      severity="info"
+                      title={o.name}
+                      detail={
+                        [o.ownership_pct != null ? `${o.ownership_pct}% ownership` : null, o.role]
+                          .filter(Boolean)
+                          .join(" - ") || undefined
+                      }
+                    />
+                  ))}
+                  {entityType === "client" && (
+                    <Button size="sm" variant="outline" onClick={addOwners} disabled={addingOwners}>
+                      {addingOwners ? (
+                        <>
+                          <Spinner className="mr-2" />
+                          Adding...
+                        </>
+                      ) : (
+                        `Add ${owners.length} beneficial owner${owners.length === 1 ? "" : "s"} as parties`
+                      )}
+                    </Button>
+                  )}
                 </div>
-              )}
-              {identity && entityType === "client" && (
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={recordCddFromId}
-                    disabled={recording}
-                    className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-100 hover:bg-neutral-800 disabled:opacity-50"
-                  >
-                    {recording ? "Recording..." : "Record CDD with these details"}
-                  </button>
+              ) : identity ? (
+                <div className="space-y-2">
+                  <SectionLabel>Identity details</SectionLabel>
+                  <dl className="grid grid-cols-1 gap-y-1 text-xs sm:grid-cols-2 sm:gap-x-4">
+                    {(
+                      [
+                        ["Name", identity.full_name],
+                        ["Date of birth", identity.date_of_birth],
+                        ["Document", identity.document_type],
+                        ["Number", identity.document_number],
+                        ["Expiry", identity.expiry],
+                      ] as const
+                    ).map(([k, v]) => (
+                      <div key={k} className="flex justify-between gap-2 border-b border-neutral-800/60 py-1">
+                        <dt className="text-neutral-500">{k}</dt>
+                        <dd className="text-right text-neutral-200">{v || "Not found"}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {identity.notes && <FindingCard severity="medium" title="Notes" detail={identity.notes} />}
+                  {entityType === "client" && (
+                    <Button size="sm" variant="outline" onClick={recordCddFromId} disabled={recording}>
+                      {recording ? (
+                        <>
+                          <Spinner className="mr-2" />
+                          Recording...
+                        </>
+                      ) : (
+                        "Record CDD with these details"
+                      )}
+                    </Button>
+                  )}
                 </div>
-              )}
-              {sourceOfFunds && entityType === "client" && (
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={saveSourceOfFunds}
-                    disabled={savingSof}
-                    className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-100 hover:bg-neutral-800 disabled:opacity-50"
-                  >
-                    {savingSof ? "Saving..." : "Save as source of funds"}
-                  </button>
+              ) : sourceOfFunds ? (
+                <div className="space-y-2">
+                  <SectionLabel>Source of funds</SectionLabel>
+                  <Markdown content={sourceOfFunds} />
+                  {entityType === "client" && (
+                    <Button size="sm" variant="outline" onClick={saveSourceOfFunds} disabled={savingSof}>
+                      {savingSof ? (
+                        <>
+                          <Spinner className="mr-2" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save as source of funds"
+                      )}
+                    </Button>
+                  )}
                 </div>
+              ) : (
+                <Markdown content={analysis} />
               )}
-              <p className="mt-2 text-neutral-600">
-                A draft from Onus for you to review and verify - not a determination.
-              </p>
-            </div>
+              <AiDisclaimer>A draft from Onus for you to review and verify - not a determination.</AiDisclaimer>
+            </AiResultCard>
           )}
         </div>
         {err && <p className="text-xs text-red-400">{err}</p>}
