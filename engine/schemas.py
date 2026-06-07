@@ -149,8 +149,21 @@ class UpcomingDeadlineOut(BaseModel):
     days_remaining: int
 
 
+class ReadinessMilestoneOut(BaseModel):
+    key: str
+    label: str
+    done: bool
+    href: str
+
+
+class ReadinessOut(BaseModel):
+    percent: int
+    milestones: List[ReadinessMilestoneOut]
+
+
 class DashboardSummary(BaseModel):
     firm_risk_rating: str
+    readiness: ReadinessOut
     pending_actions: List[PendingActionOut]
     recent_agent_activity: List[AgentActivityOut]
     upcoming_deadlines: List[UpcomingDeadlineOut]
