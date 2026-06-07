@@ -29,7 +29,8 @@ type AgentActivity = {
   summary: string;
   created_at: string;
   human_action_required: boolean;
-  human_action_outcome: string | null;
+  human_action_label: string | null;
+  href: string | null;
 };
 type UpcomingDeadline = { id: string; name: string; due_at: string; days_remaining: number };
 type Summary = {
@@ -97,6 +98,21 @@ export default async function DashboardPage() {
         </div>
       </header>
 
+      <div className="mb-8 flex flex-wrap gap-2">
+        <Button asChild size="sm" variant="outline">
+          <Link href="/clients">New client</Link>
+        </Button>
+        <Button asChild size="sm" variant="outline">
+          <Link href="/settings">Screen a name</Link>
+        </Button>
+        <Button asChild size="sm" variant="outline">
+          <Link href="/reporting">Draft a report</Link>
+        </Button>
+        <Button asChild size="sm" variant="outline">
+          <Link href="/documents">Documents</Link>
+        </Button>
+      </div>
+
       {(overdue.length > 0 || dueSoon.length > 0) && (
         <div
           className={cn(
@@ -118,7 +134,9 @@ export default async function DashboardPage() {
               {dueSoon.length} due within 14 days.{" "}
             </>
           )}
-          See upcoming deadlines below.
+          <a href="#deadlines" className="font-medium underline underline-offset-2">
+            See upcoming deadlines below.
+          </a>
         </div>
       )}
 
@@ -160,13 +178,9 @@ export default async function DashboardPage() {
                       )}
                     </div>
                   </div>
-                  {a.href ? (
+                  {a.href && (
                     <Button asChild size="sm" className="shrink-0">
                       <Link href={a.href}>{a.action_label}</Link>
-                    </Button>
-                  ) : (
-                    <Button size="sm" className="shrink-0">
-                      {a.action_label}
                     </Button>
                   )}
                 </CardContent>
@@ -193,14 +207,17 @@ export default async function DashboardPage() {
                       {relativeTime(t.created_at)}
                     </span>
                   </div>
-                  {t.human_action_required ? (
-                    <p className="mt-2 text-xs text-amber-400">
-                      Needed your attention - {t.human_action_outcome ?? "awaiting review"}
-                    </p>
-                  ) : (
-                    t.human_action_outcome && (
-                      <p className="mt-2 text-xs text-neutral-500">{t.human_action_outcome}</p>
-                    )
+                  {t.human_action_required && (
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs text-amber-400">
+                        {t.human_action_label ?? "Needs your attention"}
+                      </p>
+                      {t.href && (
+                        <Button asChild size="sm" variant="outline" className="shrink-0">
+                          <Link href={t.href}>Review now</Link>
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -210,7 +227,7 @@ export default async function DashboardPage() {
       </Section>
 
       {/* Section 3 - Upcoming deadlines */}
-      <Section title="Upcoming deadlines">
+      <Section title="Upcoming deadlines" id="deadlines">
         {deadlines.length === 0 ? (
           <EmptyState>No upcoming deadlines.</EmptyState>
         ) : (
@@ -243,9 +260,9 @@ export default async function DashboardPage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, id, children }: { title: string; id?: string; children: React.ReactNode }) {
   return (
-    <section className="mb-10">
+    <section id={id} className="mb-10">
       <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">{title}</h2>
       {children}
     </section>

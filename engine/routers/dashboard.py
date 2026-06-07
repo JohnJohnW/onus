@@ -56,6 +56,48 @@ def _deadline_href(deadline_type: str) -> str:
     return DEADLINE_HREFS.get(deadline_type, "/dashboard")
 
 
+HUMAN_ACTION_LABELS = {
+    "verify_cdd": "Verify customer due diligence",
+    "confirm_classification": "Confirm the client classification",
+    "review_alerts": "Review the monitoring alerts",
+    "review_risk_matches": "Review the screening matches",
+    "review_sanctions_matches": "Review the sanctions matches",
+    "review_pep_matches": "Review the PEP matches",
+    "review_smr": "Review the suspicious matter report",
+    "review_risk_assessment": "Review the risk assessment",
+    "review_policy": "Review the policy",
+    "review_documents": "Review your prepared documents",
+}
+
+
+def _action_label(action_type: Optional[str]) -> Optional[str]:
+    if not action_type:
+        return None
+    return HUMAN_ACTION_LABELS.get(action_type, action_type.replace("_", " ").capitalize())
+
+
+def _action_href(task: AgentTask) -> Optional[str]:
+    """Where the principal goes to resolve a task that needs them. Derived from the task's
+    input_state so the dashboard activity feed is never a dead-end."""
+    st = task.input_state or {}
+    if st.get("client_id"):
+        return f"/clients/{st['client_id']}"
+    if st.get("report_id"):
+        return "/reporting"
+    if st.get("risk_assessment_id"):
+        return "/risk-profile"
+    if st.get("policy_id"):
+        return "/compliance-program"
+    if st.get("list_type"):
+        return "/settings"
+    return {
+        "review_smr": "/reporting",
+        "review_risk_assessment": "/risk-profile",
+        "review_policy": "/compliance-program",
+        "review_documents": "/documents",
+    }.get(task.human_action_type or "")
+
+
 def _task_summary(task: AgentTask) -> str:
     out = task.output_state or {}
     if isinstance(out, dict) and out.get("summary"):
@@ -160,7 +202,8 @@ def summary(
             summary=_task_summary(t),
             created_at=t.created_at,
             human_action_required=t.human_action_required,
-            human_action_outcome=t.human_action_type,
+            human_action_label=_action_label(t.human_action_type) if t.human_action_required else None,
+            href=_action_href(t) if t.human_action_required else None,
         )
         for t in recent
     ]
