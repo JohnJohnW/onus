@@ -447,6 +447,26 @@ export function ProgramView({
               }}
             />
           </div>
+          {program.policies.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {program.policies.map((p) => (
+                <span
+                  key={p.id}
+                  title={p.status === "approved" ? "Approved" : p.documented ? "Documented" : "Not documented"}
+                  className={
+                    "rounded border px-2 py-1 text-xs " +
+                    (p.status === "approved"
+                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                      : p.documented
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                        : "border-neutral-700 bg-neutral-900 text-neutral-500")
+                  }
+                >
+                  {p.title}
+                </span>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
