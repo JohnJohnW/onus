@@ -166,6 +166,15 @@ export function SanctionsPanel() {
           </Button>
         </form>
 
+        {results && LISTS.some((l) => !statuses[l.key]?.loaded) && (
+          <p className="text-xs text-amber-400">
+            {LISTS.filter((l) => !statuses[l.key]?.loaded)
+              .map((l) => l.label)
+              .join(" and ")}{" "}
+            not loaded, so not screened. Upload to include it.
+          </p>
+        )}
+
         {results &&
           results.map((r) => (
             <div key={r.list_type} className="space-y-1.5">
