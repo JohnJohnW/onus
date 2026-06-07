@@ -126,7 +126,9 @@ export function SanctionsPanel() {
                 <p className="text-xs text-neutral-500">
                   {s?.loaded
                     ? `${s.entry_count} entries - loaded ${formatDate(s.fetched_at)}`
-                    : "Not loaded yet."}
+                    : canRefresh
+                      ? "Not loaded yet."
+                      : "Upload a list to enable screening (no automatic source)."}
                 </p>
               </div>
               <div className="flex items-center gap-3">

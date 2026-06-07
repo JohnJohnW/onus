@@ -12,7 +12,7 @@ import json
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import update
+from sqlalchemy import insert, update
 from sqlalchemy.orm import Session
 
 from models import SanctionsEntry, SanctionsListVersion
@@ -135,23 +135,30 @@ def import_version(
         .values(is_current=False)
     )
     db.add(version)
-    db.flush()
-    for entry in entries:
-        db.add(
-            SanctionsEntry(
-                version_id=version.id,
-                reference=entry.get("reference") or None,
-                entity_type=entry.get("entity_type") or "unknown",
-                primary_name=entry.get("primary_name") or "",
-                search_names=entry.get("search_names") or [],
-                aliases=entry.get("aliases") or [],
-                dob=entry.get("dob") or None,
-                place_of_birth=entry.get("place_of_birth") or None,
-                citizenship=entry.get("citizenship") or None,
-                address=entry.get("address") or None,
-                listing_info=entry.get("listing_info") or None,
-                raw=entry.get("raw"),
-            )
+    db.flush()  # assigns version.id
+    if entries:
+        # Bulk insert (SQLAlchemy 2.0 insertmanyvalues) instead of thousands of per-row ORM
+        # adds: the DFAT list is ~7k entries, and one-by-one inserts time out the serverless
+        # function. This batches them into a few multi-row INSERTs.
+        db.execute(
+            insert(SanctionsEntry),
+            [
+                {
+                    "version_id": version.id,
+                    "reference": entry.get("reference") or None,
+                    "entity_type": entry.get("entity_type") or "unknown",
+                    "primary_name": entry.get("primary_name") or "",
+                    "search_names": entry.get("search_names") or [],
+                    "aliases": entry.get("aliases") or [],
+                    "dob": entry.get("dob") or None,
+                    "place_of_birth": entry.get("place_of_birth") or None,
+                    "citizenship": entry.get("citizenship") or None,
+                    "address": entry.get("address") or None,
+                    "listing_info": entry.get("listing_info") or None,
+                    "raw": entry.get("raw"),
+                }
+                for entry in entries
+            ],
         )
     db.commit()
     db.refresh(version)

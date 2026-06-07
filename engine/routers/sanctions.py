@@ -97,8 +97,13 @@ async def refresh(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"No {label} list URL is configured. Upload the file manually instead.",
         )
+    # Some government/WAF endpoints reject the default httpx User-Agent; present a browser-like
+    # one so the fetch succeeds from the serverless egress.
+    ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     try:
-        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=60.0, follow_redirects=True, headers={"User-Agent": ua}
+        ) as client:
             resp = await client.get(url)
             resp.raise_for_status()
             content = resp.content
