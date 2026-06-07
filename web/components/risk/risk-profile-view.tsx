@@ -6,6 +6,7 @@ import { useState } from "react";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Markdown } from "@/components/ui/markdown";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDate, relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -240,7 +241,9 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
               </p>
             </div>
           </div>
-          <p className="mt-4 text-sm leading-relaxed text-neutral-300">{assessment.summary}</p>
+          <div className="mt-4">
+            <Markdown content={assessment.summary} />
+          </div>
           {isDraft && (
             <div className="mt-4">
               <Button variant="outline" size="sm" onClick={draftSummary} disabled={drafting}>
@@ -316,7 +319,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
           )}
           {reviewNote && (
             <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-sm">
-              <p className="whitespace-pre-wrap text-neutral-300">{reviewNote}</p>
+              <Markdown content={reviewNote} />
               <p className="mt-2 text-xs text-neutral-600">
                 A review note from Onus. Approving the assessment discharges the review.
               </p>
@@ -324,7 +327,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
           )}
           {agentNote && (
             <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-sm">
-              <p className="whitespace-pre-wrap text-neutral-300">{agentNote}</p>
+              <Markdown content={agentNote} />
               <p className="mt-2 text-xs text-neutral-600">
                 Produced by an autonomous agent in Anthropic&apos;s managed cloud (beta). Review
                 before relying on it.

@@ -8,6 +8,16 @@ actually generated.
 from __future__ import annotations
 
 import io
+import re
+
+
+def _plain(text: str) -> str:
+    """Strip the lightweight markdown the AI emits (## headings, **bold**) so it reads
+    cleanly in the current .docx. The styled-document overhaul renders markdown properly."""
+    if not text:
+        return text or ""
+    out = re.sub(r"^\s{0,3}#{1,6}\s*", "", text, flags=re.MULTILINE)
+    return out.replace("**", "")
 
 
 def build_risk_assessment_docx(assessment, firm_name: str) -> bytes:
@@ -39,7 +49,7 @@ def build_risk_assessment_docx(assessment, firm_name: str) -> bytes:
 
     if assessment.summary:
         doc.add_heading("Summary", level=1)
-        doc.add_paragraph(assessment.summary)
+        doc.add_paragraph(_plain(assessment.summary))
 
     def factor_section(title: str, rows, name_attr: str) -> None:
         doc.add_heading(title, level=1)
@@ -208,7 +218,7 @@ def build_program_docx(program, firm_name: str) -> bytes:
             ref_run.italic = True
             ref_run.font.size = Pt(9)
         body = (p.body or "").strip()
-        doc.add_paragraph(body if body else "Not yet documented.")
+        doc.add_paragraph(_plain(body) if body else "Not yet documented.")
 
     doc.add_paragraph()
     disclaimer = doc.add_paragraph()

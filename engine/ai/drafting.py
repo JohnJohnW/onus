@@ -32,7 +32,12 @@ _SYSTEM = (
     "no cliches. Avoid words like robust, comprehensive, seamless, leverage, navigate, delve, "
     "landscape, realm, and openers like 'in today's' or 'it is important to note'.\n"
     "- Do not pad with rhetorical contrast such as 'not just X, but Y'. Make the point once.\n"
-    "- Prefer specific nouns and verbs over hedging and adverbs."
+    "- Prefer specific nouns and verbs over hedging and adverbs.\n"
+    "- Structure for fast scanning: use short markdown section headings written as "
+    "'## Heading', bullet points starting with '- ', and **bold** for key terms or labels. "
+    "Prefer a few labelled bullets over one long paragraph. Do not add a top-level title or a "
+    "sign-off. For a flowing narrative (such as a grounds-for-suspicion statement), write prose "
+    "instead of bullets."
 )
 
 # Non-ASCII codepoints to rewrite, expressed as integers so this source stays pure
