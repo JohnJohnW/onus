@@ -456,6 +456,77 @@ async def draft_compliance_brief(
     return _sanitize(text) + DISCLAIMER
 
 
+_BRIEF_ACTION_KEYS = {
+    "open_risk_profile",
+    "review_clients",
+    "open_program",
+    "open_reporting",
+    "open_documents",
+    "none",
+}
+
+BRIEF_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "headline": {"type": "string"},
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "severity": {"type": "string", "enum": ["high", "medium", "low", "info"]},
+                    "title": {"type": "string"},
+                    "detail": {"type": "string"},
+                    "action_key": {
+                        "type": "string",
+                        "enum": [
+                            "open_risk_profile",
+                            "review_clients",
+                            "open_program",
+                            "open_reporting",
+                            "open_documents",
+                            "none",
+                        ],
+                    },
+                },
+                "required": ["severity", "title", "detail", "action_key"],
+            },
+        },
+    },
+    "required": ["headline", "items"],
+}
+
+
+async def generate_brief(
+    *, firm_name: Optional[str], did: list[str], needs: list[str], deadlines: list[str]
+) -> dict:
+    """Structured compliance brief: a headline plus prioritised, actionable items."""
+    prompt = (
+        f"You are briefing the principal of {firm_name or 'the firm'} on AML/CTF compliance. "
+        "Using only the facts below, produce a one-sentence headline on where things stand and a "
+        "short, prioritised list of items. For each item set: severity (high if it needs action "
+        "now, medium for an upcoming deadline, low or info for things already handled), a short "
+        "title, a one-line detail, and an action_key for where to deal with it (open_risk_profile, "
+        "review_clients, open_program, open_reporting, open_documents, or none). Focus the items "
+        "on what needs attention and what is coming up. Do not invent anything; if nothing needs "
+        "attention, say so in the headline and keep the item list short or reassuring.\n\n"
+        + _brief_block("What Onus did recently", did)
+        + "\n\n"
+        + _brief_block("Needs your attention", needs)
+        + "\n\n"
+        + _brief_block("Upcoming deadlines", deadlines)
+    )
+    data = _sanitize_structure(
+        await get_ai_provider().complete_structured(prompt=prompt, schema=BRIEF_SCHEMA, system=_SYSTEM)
+    )
+    for item in data.get("items") or []:
+        if item.get("action_key") not in _BRIEF_ACTION_KEYS:
+            item["action_key"] = "none"
+    return data
+
+
 _IDENTITY_INSTRUCTION = (
     "Read this identification document and extract the identity details. Return ONLY a JSON "
     "object, no prose, with keys: full_name (string or null), date_of_birth (string or null), "

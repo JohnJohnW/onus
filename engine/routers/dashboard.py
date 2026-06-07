@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai.drafting import draft_compliance_brief
+from ai.drafting import generate_brief
 from auth.dependencies import get_current_user
 from database import get_db
 from models import (
@@ -245,10 +245,16 @@ async def brief(
         if d.due_at
     ]
 
-    text = await draft_compliance_brief(
-        firm_name=firm.name if firm else None, did=did, needs=needs, deadlines=deadlines
-    )
-    return BriefOut(brief=text)
+    try:
+        data = await generate_brief(
+            firm_name=firm.name if firm else None, did=did, needs=needs, deadlines=deadlines
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not generate a brief right now. Please try again.",
+        ) from exc
+    return BriefOut(headline=data.get("headline"), items=data.get("items") or [])
 
 
 @router.post("/deadlines/{deadline_id}/complete")
