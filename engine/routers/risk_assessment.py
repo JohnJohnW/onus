@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from agent_log import record_agent_task
-from ai.drafting import draft_review_note, draft_risk_assessment_summary
+from ai.drafting import draft_review_note, draft_risk_assessment_summary, generate_review
 from ai.managed import (
     cleanup_review_run,
     managed_agents_enabled,
@@ -50,6 +50,7 @@ from schemas import (
     MethodologyRequest,
     PfRequest,
     ReviewNoteOut,
+    ReviewOut,
     RiskAssessmentOut,
     RiskItemOut,
     ServicesRequest,
@@ -504,29 +505,36 @@ async def draft_summary(
     return _serialize(fresh, current_user.full_name or current_user.email)
 
 
-@router.post("/review", response_model=ReviewNoteOut)
+@router.post("/review", response_model=ReviewOut)
 async def run_review(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> ReviewNoteOut:
-    """Onus runs a periodic review: re-assess and note what to check since the last
-    approval. A draft note for the senior manager - approving the assessment still
-    discharges the review (and reschedules the next one)."""
+) -> ReviewOut:
+    """Onus runs a periodic review and returns it as structured data (rating, drivers,
+    recommended actions, checks, recommendation) for the app to render interactively. A
+    draft for the senior manager - approving the assessment still discharges the review."""
     assessment = _current(db, current_user.firm_id)
     if assessment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No risk assessment found.")
     firm = db.get(Firm, current_user.firm_id)
     last_approved = assessment.approved_at.date().isoformat() if assessment.approved_at else None
-    note = await draft_review_note(
-        firm_name=firm.name if firm else None,
-        overall_rating=assessment.overall_risk_rating,
-        last_approved_on=last_approved,
-        services=[(s.designated_service_type, s.inherent_risk_rating) for s in assessment.services],
-        customer_types=[(c.customer_type, c.inherent_risk_rating) for c in assessment.customer_types],
-        channels=[(d.channel_type, d.inherent_risk_rating) for d in assessment.delivery_channels],
-        countries=[(c.country, c.inherent_risk_rating) for c in assessment.countries],
-        pf_rating=assessment.pf_risk_rating,
-    )
+    try:
+        review = await generate_review(
+            firm_name=firm.name if firm else None,
+            overall_rating=assessment.overall_risk_rating,
+            last_approved_on=last_approved,
+            services=[(s.designated_service_type, s.inherent_risk_rating) for s in assessment.services],
+            customer_types=[(c.customer_type, c.inherent_risk_rating) for c in assessment.customer_types],
+            channels=[(d.channel_type, d.inherent_risk_rating) for d in assessment.delivery_channels],
+            countries=[(c.country, c.inherent_risk_rating) for c in assessment.countries],
+            pf_rating=assessment.pf_risk_rating,
+        )
+        result = ReviewOut(**review)
+    except Exception as exc:  # AI failure or malformed shape -> graceful error, not a 500
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not run a review right now. Please try again.",
+        ) from exc
     db.add(
         AuditLog(
             firm_id=current_user.firm_id,
@@ -546,7 +554,7 @@ async def run_review(
         input_state={"risk_assessment_id": str(assessment.id)},
     )
     db.commit()
-    return ReviewNoteOut(note=note)
+    return result
 
 
 @router.post("/agent-review", response_model=AgentReviewStartOut)

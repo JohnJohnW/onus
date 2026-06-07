@@ -315,7 +315,10 @@ def test_risk_review_note(client, monkeypatch):
     client.post("/risk-assessment/services", json={"services": ["Property transactions"]}, headers=h)
     res = client.post("/risk-assessment/review", headers=h)
     assert res.status_code == 200, res.text
-    assert res.json()["note"]
+    data = res.json()
+    assert data["overall_rating"] and data["headline"]
+    assert isinstance(data["recommended_actions"], list)
+    assert isinstance(data["checks"], list)
     activity = client.get("/dashboard/summary", headers=h).json().get("recent_agent_activity", [])
     assert any("review" in a["summary"].lower() for a in activity), activity
 

@@ -56,6 +56,34 @@ class AnthropicProvider(AIProvider):
         message = await self._client.messages.create(**kwargs)
         return "".join(block.text for block in message.content if block.type == "text")
 
+    async def complete_structured(
+        self, *, prompt: str, schema: dict, system: str = None, max_tokens: int = None
+    ) -> dict:
+        """Force one tool call whose input_schema is the caller's schema, then return the
+        validated tool input. Forced tool use is the most broadly compatible way to get
+        schema-conformant JSON from the Messages API."""
+        tool = {
+            "name": "emit",
+            "description": "Emit the result as structured data matching the schema.",
+            "input_schema": schema,
+        }
+        kwargs = {
+            "model": self.model,
+            "max_tokens": max_tokens or self.max_tokens,
+            "tools": [tool],
+            "tool_choice": {"type": "tool", "name": "emit"},
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if system:
+            kwargs["system"] = [
+                {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
+            ]
+        message = await self._client.messages.create(**kwargs)
+        for block in message.content:
+            if block.type == "tool_use" and block.name == "emit":
+                return block.input
+        raise RuntimeError("Model did not return structured output.")
+
     async def embed(self, text: str) -> list[float]:
         raise NotImplementedError(
             "Anthropic does not offer a native embeddings API. Use a dedicated "
