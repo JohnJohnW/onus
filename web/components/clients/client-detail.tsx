@@ -9,6 +9,7 @@ import { DocumentsSection } from "@/components/clients/documents-section";
 import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { AiDisclaimer, AiResultCard, FindingCard, VerdictBanner } from "@/components/ai/result-card";
 import { Markdown } from "@/components/ui/markdown";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -706,20 +707,26 @@ export function ClientDetailView({
               </div>
             </div>
             {cddPlan && (
-              <div className="mt-4 rounded-md border border-neutral-800 bg-neutral-900 p-4 text-sm">
-                <p className="text-neutral-200">
-                  Required CDD level: <span className="capitalize">{cddPlan.level}</span>
-                </p>
-                {cddPlan.edd_reason && <p className="mt-1 text-xs text-amber-300">{cddPlan.edd_reason}</p>}
-                <p className="mt-1 text-xs text-neutral-400">{cddPlan.screening_note}</p>
-                <div className="mt-3">
-                  <Markdown content={cddPlan.plan} />
-                </div>
-                <p className="mt-3 text-xs text-neutral-600">
+              <AiResultCard title="CDD plan from Onus">
+                <VerdictBanner
+                  rating={
+                    cddPlan.level === "enhanced" ? "high" : cddPlan.level === "standard" ? "medium" : "low"
+                  }
+                  sublabel="Required CDD level"
+                  headline={cddPlan.level.charAt(0).toUpperCase() + cddPlan.level.slice(1)}
+                />
+                {cddPlan.edd_reason && (
+                  <FindingCard severity="high" title="Enhanced due diligence required" detail={cddPlan.edd_reason} />
+                )}
+                {cddPlan.screening_note && (
+                  <p className="text-xs text-neutral-400">{cddPlan.screening_note}</p>
+                )}
+                <Markdown content={cddPlan.plan} />
+                <AiDisclaimer>
                   A plan for you to follow and verify. Onus does not complete or sign off CDD - record it
                   above once done.
-                </p>
-              </div>
+                </AiDisclaimer>
+              </AiResultCard>
             )}
           </CardContent>
         </Card>
