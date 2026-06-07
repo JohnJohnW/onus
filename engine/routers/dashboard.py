@@ -14,10 +14,12 @@ from auth.dependencies import get_current_user
 from database import get_db
 from models import (
     AgentTask,
+    AmlProgram,
     ComplianceDeadline,
     Firm,
     FirmRiskState,
     GovernanceApproval,
+    RiskAssessment,
     User,
 )
 from schemas import (
@@ -25,6 +27,8 @@ from schemas import (
     BriefOut,
     DashboardSummary,
     PendingActionOut,
+    ReadinessMilestoneOut,
+    ReadinessOut,
     UpcomingDeadlineOut,
 )
 
@@ -228,8 +232,51 @@ def summary(
         for d in upcoming_rows
     ]
 
+    # --- Compliance readiness ---
+    firm = db.get(Firm, firm_id)
+    ra_done = (
+        db.scalar(
+            select(RiskAssessment).where(
+                RiskAssessment.firm_id == firm_id, RiskAssessment.status == "approved"
+            )
+        )
+        is not None
+    )
+    program = db.scalar(select(AmlProgram).where(AmlProgram.firm_id == firm_id))
+    policies = list(program.policies) if program else []
+    documented = sum(1 for p in policies if (p.body or "").strip())
+    total = len(policies)
+    milestones = [
+        ReadinessMilestoneOut(
+            key="enrolment",
+            label="Enrolled with AUSTRAC",
+            done=bool(firm and firm.enrolment_status == "enrolled"),
+            href="/settings",
+        ),
+        ReadinessMilestoneOut(
+            key="risk_assessment", label="Risk assessment approved", done=ra_done, href="/risk-profile"
+        ),
+        ReadinessMilestoneOut(
+            key="program",
+            label="Compliance program approved",
+            done=bool(program and program.status == "approved"),
+            href="/compliance-program",
+        ),
+        ReadinessMilestoneOut(
+            key="policies",
+            label=f"Policies documented ({documented} of {total})" if total else "Policies documented",
+            done=total > 0 and documented == total,
+            href="/compliance-program",
+        ),
+    ]
+    readiness = ReadinessOut(
+        percent=round(100 * sum(1 for m in milestones if m.done) / len(milestones)),
+        milestones=milestones,
+    )
+
     return DashboardSummary(
         firm_risk_rating=rating,
+        readiness=readiness,
         pending_actions=pending_actions,
         recent_agent_activity=recent_activity,
         upcoming_deadlines=upcoming_deadlines,

@@ -1,5 +1,7 @@
+import { CheckCircle2, Circle } from "lucide-react";
 import Link from "next/link";
 
+import { ProgressRing } from "@/components/charts/progress-ring";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BriefButton } from "@/components/dashboard/brief-button";
@@ -33,8 +35,10 @@ type AgentActivity = {
   href: string | null;
 };
 type UpcomingDeadline = { id: string; name: string; due_at: string; days_remaining: number };
+type ReadinessMilestone = { key: string; label: string; done: boolean; href: string };
 type Summary = {
   firm_risk_rating: string;
+  readiness?: { percent: number; milestones: ReadinessMilestone[] };
   pending_actions: PendingAction[];
   recent_agent_activity: AgentActivity[];
   upcoming_deadlines: UpcomingDeadline[];
@@ -112,6 +116,34 @@ export default async function DashboardPage() {
           <Link href="/documents">Documents</Link>
         </Button>
       </div>
+
+      {summary?.readiness && (
+        <div className="mb-8 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+          <div className="flex items-center gap-5">
+            <ProgressRing percent={summary.readiness.percent} label="ready" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-neutral-200">Compliance readiness</p>
+              <p className="text-xs text-neutral-500">Your path to AML/CTF obligations from 1 July 2026.</p>
+              <div className="mt-3 grid gap-1 sm:grid-cols-2">
+                {summary.readiness.milestones.map((m) => (
+                  <Link
+                    key={m.key}
+                    href={m.href}
+                    className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-neutral-800/50"
+                  >
+                    {m.done ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                    ) : (
+                      <Circle className="h-4 w-4 shrink-0 text-neutral-600" />
+                    )}
+                    <span className={m.done ? "text-neutral-400" : "text-neutral-200"}>{m.label}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(overdue.length > 0 || dueSoon.length > 0) && (
         <div
