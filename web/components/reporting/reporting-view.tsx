@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { DownloadDocButtons } from "@/components/ui/download-doc";
 import { Markdown } from "@/components/ui/markdown";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
@@ -197,9 +198,7 @@ function ReportRow({ report }: { report: Report }) {
       )}
       {report.type === "smr" && (
         <div className="mt-3">
-          <Button asChild size="sm" variant="outline">
-            <a href={`/api/reports/${report.id}/document`}>Download (Word)</a>
-          </Button>
+          <DownloadDocButtons path={`/api/reports/${report.id}/document`} />
         </div>
       )}
       {active && (

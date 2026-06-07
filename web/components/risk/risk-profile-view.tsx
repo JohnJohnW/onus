@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Markdown } from "@/components/ui/markdown";
 import { ReviewResult, type Review } from "@/components/risk/review-result";
+import { DownloadDocButtons } from "@/components/ui/download-doc";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDate, relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -269,9 +270,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
                 "Review with Onus"
               )}
             </Button>
-            <Button asChild variant="outline" size="sm">
-              <a href="/api/risk-assessment/document">Download (Word)</a>
-            </Button>
+            <DownloadDocButtons path="/api/risk-assessment/document" />
           </div>
           {updateNote && !isDraft && (
             <p className="mt-2 text-xs text-neutral-500">

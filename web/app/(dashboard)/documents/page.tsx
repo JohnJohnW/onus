@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DownloadDocButtons } from "@/components/ui/download-doc";
 import { auth } from "@/lib/auth";
 
 const engineUrl = process.env.ENGINE_INTERNAL_URL ?? "http://localhost:8000";
@@ -119,9 +119,7 @@ function DocRow({ title, status, href }: { title: string; status: string; href: 
           <p className="mt-0.5 text-xs text-neutral-500">{status}</p>
         </div>
         {href ? (
-          <Button asChild size="sm" variant="outline">
-            <a href={href}>Download (Word)</a>
-          </Button>
+          <DownloadDocButtons path={href} />
         ) : (
           <span className="text-xs text-neutral-600">Not available yet</span>
         )}

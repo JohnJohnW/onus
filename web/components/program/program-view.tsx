@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DownloadDocButtons } from "@/components/ui/download-doc";
 import { formatDate } from "@/lib/format";
 
 type Policy = {
@@ -377,9 +378,9 @@ export function ProgramView({
             you provide a designated service.
           </p>
         </div>
-        <Button asChild variant="outline" size="sm" className="shrink-0">
-          <a href="/api/program/document">Download (Word)</a>
-        </Button>
+        <div className="shrink-0">
+          <DownloadDocButtons path="/api/program/document" />
+        </div>
       </header>
 
       {/* Status banner */}

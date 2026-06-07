@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from auth.dependencies import get_current_user
 from database import get_db
 from docgen import build_evaluation_docx
+from pdfgen import build_evaluation_pdf
 from models import (
     AuditLog,
     EvaluationFinding,
@@ -154,17 +155,25 @@ def schedule_evaluation(
 @router.get("/{eval_id}/document")
 def download_evaluation_document(
     eval_id: str,
+    format: str = Query("docx", pattern="^(docx|pdf)$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:
-    """Generate the independent-evaluation record as a Word (.docx) document."""
+    """Generate the independent-evaluation record (Word .docx or PDF)."""
     e = _get_eval(db, current_user.firm_id, eval_id)
     firm = db.get(Firm, current_user.firm_id)
-    content = build_evaluation_docx(e, firm.name if firm else "Your firm")
+    firm_name = firm.name if firm else "Your firm"
+    if format == "pdf":
+        content = build_evaluation_pdf(e, firm_name)
+        media, ext = "application/pdf", "pdf"
+    else:
+        content = build_evaluation_docx(e, firm_name)
+        media = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ext = "docx"
     return Response(
         content=content,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": 'attachment; filename="independent-evaluation.docx"'},
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="independent-evaluation.{ext}"'},
     )
 
 

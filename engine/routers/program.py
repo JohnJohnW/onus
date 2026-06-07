@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from ai.drafting import draft_policy
 from auth.dependencies import get_current_user, require_approver
 from database import get_db
 from docgen import build_program_docx
+from pdfgen import build_program_pdf
 from models import (
     AmlProgram,
     AuditLog,
@@ -150,17 +151,25 @@ def get_program(
 
 @router.get("/document")
 def download_program_document(
+    format: str = Query("docx", pattern="^(docx|pdf)$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:
-    """Generate a submission-ready Word (.docx) AML/CTF compliance program document."""
+    """Generate a submission-ready AML/CTF compliance program document (Word .docx or PDF)."""
     program = _get_or_create_program(db, current_user.firm_id)
     firm = db.get(Firm, current_user.firm_id)
-    content = build_program_docx(program, firm.name if firm else "Your firm")
+    firm_name = firm.name if firm else "Your firm"
+    if format == "pdf":
+        content = build_program_pdf(program, firm_name)
+        media, ext = "application/pdf", "pdf"
+    else:
+        content = build_program_docx(program, firm_name)
+        media = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ext = "docx"
     return Response(
         content=content,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": 'attachment; filename="aml-ctf-program.docx"'},
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="aml-ctf-program.{ext}"'},
     )
 
 

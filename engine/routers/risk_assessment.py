@@ -5,7 +5,7 @@ import os
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -22,6 +22,7 @@ from auth.dependencies import get_current_user, require_approver
 from database import get_db
 from deadlines import complete_deadlines
 from docgen import build_risk_assessment_docx
+from pdfgen import build_risk_assessment_pdf
 from models import (
     AgentTask,
     AuditLog,
@@ -904,17 +905,25 @@ def export_assessment(
 
 @router.get("/document")
 def download_document(
+    format: str = Query("docx", pattern="^(docx|pdf)$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:
-    """Generate a submission-ready Word (.docx) risk assessment document."""
+    """Generate a submission-ready risk assessment document (Word .docx or PDF)."""
     a = _current(db, current_user.firm_id)
     if a is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No risk assessment found.")
     firm = db.get(Firm, current_user.firm_id)
-    content = build_risk_assessment_docx(a, firm.name if firm else "Your firm")
+    firm_name = firm.name if firm else "Your firm"
+    if format == "pdf":
+        content = build_risk_assessment_pdf(a, firm_name)
+        media, ext = "application/pdf", "pdf"
+    else:
+        content = build_risk_assessment_docx(a, firm_name)
+        media = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ext = "docx"
     return Response(
         content=content,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": 'attachment; filename="risk-assessment.docx"'},
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="risk-assessment.{ext}"'},
     )
