@@ -246,6 +246,13 @@ def submit_for_approval(
     db: Session = Depends(get_db),
 ) -> ProgramOut:
     program = _get_or_create_program(db, current_user.firm_id)
+    policies = list(program.policies)
+    documented = sum(1 for p in policies if (p.body or "").strip())
+    if not policies or documented < len(policies):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Document all policies before submitting for approval ({documented} of {len(policies)} done).",
+        )
     existing = db.scalar(
         select(GovernanceApproval).where(
             GovernanceApproval.firm_id == current_user.firm_id,
@@ -280,6 +287,13 @@ def approve_program(
 ) -> ProgramOut:
     """Senior-manager approval of the program (Act s26P) - records name, role, date."""
     program = _get_or_create_program(db, current_user.firm_id)
+    policies = list(program.policies)
+    documented = sum(1 for p in policies if (p.body or "").strip())
+    if not policies or documented < len(policies):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Document all policies before approval ({documented} of {len(policies)} done).",
+        )
     now = datetime.now(timezone.utc)
     actor = current_user.full_name or current_user.email
 
@@ -293,7 +307,8 @@ def approve_program(
     program.approved_at = now
     program.next_review_due_at = now + timedelta(days=365 * 3)  # at least every 3 years (s26F(3)(d))
     for p in program.policies:
-        p.status = "approved"
+        if (p.body or "").strip():
+            p.status = "approved"
 
     pending = db.scalar(
         select(GovernanceApproval).where(

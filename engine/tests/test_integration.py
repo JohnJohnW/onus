@@ -713,9 +713,20 @@ def test_program_records_admin_approver_role(client):
     'senior_manager' label."""
     _, token = _signup(client, "Approver Role Firm")
     h = {"Authorization": f"Bearer {token}"}
+    program = client.get("/program", headers=h).json()
+    for p in program["policies"]:
+        client.patch(f"/program/policies/{p['id']}", json={"body": "Documented for test."}, headers=h)
     res = client.post("/program/approve", json={}, headers=h)
     assert res.status_code == 200, res.text
     assert res.json()["approved_by_role"] == "admin", res.json()
+
+
+def test_program_approval_blocked_until_documented(client):
+    """A program cannot be approved until every policy is documented (integrity gate)."""
+    _, token = _signup(client, "Program Gating Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    res = client.post("/program/approve", json={}, headers=h)
+    assert res.status_code == 400, res.text
 
 
 def test_signup_rejects_invalid_email(client):
