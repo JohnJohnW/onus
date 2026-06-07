@@ -745,7 +745,9 @@ def test_dashboard_brief(client, monkeypatch):
     h = {"Authorization": f"Bearer {token}"}
     res = client.post("/dashboard/brief", headers=h)
     assert res.status_code == 200, res.text
-    assert res.json()["brief"]
+    data = res.json()
+    assert data["headline"]
+    assert isinstance(data["items"], list)
 
 
 def test_onboarding_complete_surfaces_documents(client):
