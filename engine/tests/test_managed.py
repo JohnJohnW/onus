@@ -32,6 +32,21 @@ def test_extract_text_nested_message_and_string_content():
     assert _extract_text(events) == "Plain string reply."
 
 
+def test_extract_text_real_data_container_shape():
+    # The live beta returns events under "data"; the agent reply is an agent.message.
+    events = {
+        "data": [
+            {"type": "session.status_running"},
+            {"type": "session.thread_status_running", "agent_name": "onus-reviewer"},
+            {"type": "user.message", "content": [{"type": "text", "text": "Review the assessment..."}]},
+            {"type": "span.model_request_start"},
+            {"type": "agent.thinking"},
+            {"type": "agent.message", "content": [{"type": "text", "text": "AML/CTF review note."}]},
+        ]
+    }
+    assert _extract_text(events) == "AML/CTF review note."
+
+
 def test_extract_text_empty_reports_event_types():
     events = {"events": [{"type": "session.status"}, {"type": "agent.tool_use"}]}
     out = _extract_text(events)
