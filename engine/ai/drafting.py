@@ -149,6 +149,16 @@ def _sanitize_structure(obj):
     return obj
 
 
+_REVIEW_ACTION_KEYS = {
+    "approve_assessment",
+    "rerun_review",
+    "draft_summary",
+    "update_assessment",
+    "review_clients",
+    "open_program",
+    "none",
+}
+
 REVIEW_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -177,8 +187,20 @@ REVIEW_SCHEMA = {
                     "title": {"type": "string"},
                     "detail": {"type": "string"},
                     "priority": {"type": "string", "enum": ["high", "medium", "low"]},
+                    "action_key": {
+                        "type": "string",
+                        "enum": [
+                            "approve_assessment",
+                            "rerun_review",
+                            "draft_summary",
+                            "update_assessment",
+                            "review_clients",
+                            "open_program",
+                            "none",
+                        ],
+                    },
                 },
-                "required": ["title", "detail", "priority"],
+                "required": ["title", "detail", "priority", "action_key"],
             },
         },
         "checks": {"type": "array", "items": {"type": "string"}},
@@ -226,17 +248,26 @@ async def generate_review(
         "- overall_rating: the current overall ML/TF rating.\n"
         "- headline: one sentence on the firm's current position.\n"
         "- drivers: the factors most driving the rating, each with its rating and a short note.\n"
-        "- recommended_actions: concrete next steps, each with a priority.\n"
+        "- recommended_actions: concrete next steps, each with a priority and an action_key. "
+        "Set action_key to the single best next step for that action, chosen ONLY from: "
+        "approve_assessment (confirm the assessment as-is), rerun_review, draft_summary (draft "
+        "the overall summary), update_assessment (change factors or inputs), review_clients, "
+        "open_program; use none if no button fits.\n"
         "- checks: specific things to verify or update since the last approval (have the "
         "designated services, client types, delivery channels, or countries changed?).\n"
         "- recommendation: confirm the assessment as-is, or update specific factors.\n"
         "Do not invent factors beyond those listed. Facts:\n"
         + "\n".join(f"- {line}" for line in lines)
     )
-    data = await get_ai_provider().complete_structured(
-        prompt=prompt, schema=REVIEW_SCHEMA, system=_SYSTEM
+    data = _sanitize_structure(
+        await get_ai_provider().complete_structured(prompt=prompt, schema=REVIEW_SCHEMA, system=_SYSTEM)
     )
-    return _sanitize_structure(data)
+    # Defensive: only ever surface an allow-listed action key (forced tool use is not strictly
+    # schema-validated, so a stray value must not reach the client).
+    for action in data.get("recommended_actions") or []:
+        if action.get("action_key") not in _REVIEW_ACTION_KEYS:
+            action["action_key"] = "none"
+    return data
 
 
 async def draft_risk_assessment_summary(
