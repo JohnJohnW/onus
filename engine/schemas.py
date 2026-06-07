@@ -138,7 +138,8 @@ class AgentActivityOut(BaseModel):
     summary: str
     created_at: datetime
     human_action_required: bool
-    human_action_outcome: Optional[str] = None
+    human_action_label: Optional[str] = None
+    href: Optional[str] = None
 
 
 class UpcomingDeadlineOut(BaseModel):
