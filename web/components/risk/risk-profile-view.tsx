@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Markdown } from "@/components/ui/markdown";
 import { ReviewResult, type Review } from "@/components/risk/review-result";
+import { RiskHeatmap } from "@/components/charts/risk-heatmap";
 import { DownloadDocButtons } from "@/components/ui/download-doc";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDate, relativeTime } from "@/lib/format";
@@ -280,6 +281,17 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
           {review && <ReviewResult review={review} />}
         </CardContent>
       </Card>
+
+      <div className="mb-6">
+        <RiskHeatmap
+          rows={[
+            { label: "Designated services", items: assessment.services },
+            { label: "Customer types", items: assessment.client_types },
+            { label: "Delivery channels", items: assessment.channels },
+            { label: "Countries", items: assessment.countries },
+          ]}
+        />
+      </div>
 
       {/* Category cards */}
       <div className="space-y-6">
