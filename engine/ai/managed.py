@@ -99,17 +99,47 @@ async def start_review_run(*, model: str, task: str) -> dict:
         return {"agent_id": agent["id"], "environment_id": env["id"], "session_id": session["id"]}
 
 
+def _collect_text(content, out: list) -> None:
+    """Pull text out of a content value that may be a string or a list of blocks."""
+    if isinstance(content, str):
+        out.append(content)
+    elif isinstance(content, list):
+        for block in content:
+            if (
+                isinstance(block, dict)
+                and block.get("text")
+                and block.get("type") not in ("thinking", "tool_use", "tool_result")
+            ):
+                out.append(str(block["text"]))
+
+
 def _extract_text(events) -> str:
+    """Permissively pull the agent's reply text from a session's event history. The exact
+    beta event shape varies, so this skips user/thinking/tool/status events and collects
+    text from the rest (top-level content or a nested message). If nothing is found, it
+    reports the event types seen so the shape can be pinned down."""
     items = events.get("events", events) if isinstance(events, dict) else events
+    if not isinstance(items, list):
+        items = []
     texts: list[str] = []
-    for ev in items or []:
+    types_seen: list[str] = []
+    for ev in items:
         if not isinstance(ev, dict):
             continue
-        if ev.get("type") in ("agent.message", "assistant.message", "message"):
-            for block in ev.get("content", []) or []:
-                if isinstance(block, dict) and block.get("type") == "text" and block.get("text"):
-                    texts.append(block["text"])
-    return "\n".join(texts).strip() or "The review session finished but returned no text."
+        etype = str(ev.get("type", ""))
+        types_seen.append(etype)
+        low = etype.lower()
+        if "user" in low or "status" in low:
+            continue
+        _collect_text(ev.get("content"), texts)
+        msg = ev.get("message")
+        if isinstance(msg, dict):
+            _collect_text(msg.get("content"), texts)
+    out = "\n".join(t.strip() for t in texts if t and t.strip()).strip()
+    if out:
+        return out
+    uniq = ", ".join(sorted(set(t for t in types_seen if t))) or "none"
+    return f"The review session finished but returned no readable text. (event types seen: {uniq})"
 
 
 async def poll_review_run(session_id: str) -> dict:
