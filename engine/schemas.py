@@ -469,6 +469,27 @@ class ReviewNoteOut(BaseModel):
     note: str
 
 
+class ReviewDriverOut(BaseModel):
+    factor: str
+    rating: str
+    note: str
+
+
+class ReviewActionOut(BaseModel):
+    title: str
+    detail: str
+    priority: str
+
+
+class ReviewOut(BaseModel):
+    overall_rating: str
+    headline: str
+    drivers: List[ReviewDriverOut]
+    recommended_actions: List[ReviewActionOut]
+    checks: List[str]
+    recommendation: str
+
+
 class AgentReviewStartOut(BaseModel):
     session_id: str
 

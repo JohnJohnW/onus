@@ -138,6 +138,107 @@ def _fmt_factors(label: str, items: list[tuple[str, str]]) -> str:
     return f"{label}: {joined}."
 
 
+def _sanitize_structure(obj):
+    """Recursively ASCII-sanitize every string value in a structured AI result."""
+    if isinstance(obj, str):
+        return _sanitize(obj)
+    if isinstance(obj, list):
+        return [_sanitize_structure(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _sanitize_structure(v) for k, v in obj.items()}
+    return obj
+
+
+REVIEW_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "overall_rating": {"type": "string", "enum": ["low", "medium", "high", "unassessed"]},
+        "headline": {"type": "string"},
+        "drivers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "factor": {"type": "string"},
+                    "rating": {"type": "string", "enum": ["low", "medium", "high"]},
+                    "note": {"type": "string"},
+                },
+                "required": ["factor", "rating", "note"],
+            },
+        },
+        "recommended_actions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "title": {"type": "string"},
+                    "detail": {"type": "string"},
+                    "priority": {"type": "string", "enum": ["high", "medium", "low"]},
+                },
+                "required": ["title", "detail", "priority"],
+            },
+        },
+        "checks": {"type": "array", "items": {"type": "string"}},
+        "recommendation": {"type": "string"},
+    },
+    "required": [
+        "overall_rating",
+        "headline",
+        "drivers",
+        "recommended_actions",
+        "checks",
+        "recommendation",
+    ],
+}
+
+
+async def generate_review(
+    *,
+    firm_name: Optional[str],
+    overall_rating: Optional[str],
+    last_approved_on: Optional[str],
+    services: list[tuple[str, str]],
+    customer_types: list[tuple[str, str]],
+    channels: list[tuple[str, str]],
+    countries: list[tuple[str, str]],
+    pf_rating: Optional[str],
+) -> dict:
+    """Run a periodic review and return it as structured data (rating, drivers, actions,
+    checks, recommendation) for the app to render as interactive UI."""
+    since = (
+        f" (last approved {last_approved_on})"
+        if last_approved_on
+        else " (no prior approval on record)"
+    )
+    lines = [
+        _fmt_factors("Designated services", services),
+        _fmt_factors("Customer types", customer_types),
+        _fmt_factors("Delivery channels", channels),
+        _fmt_factors("Countries", countries),
+        f"Proliferation financing: {pf_rating or 'not yet assessed'}.",
+    ]
+    prompt = (
+        f"Run a periodic review of {firm_name or 'the firm'}'s AML/CTF risk assessment as of "
+        f"today{since}. Using only the facts below, produce a structured review:\n"
+        "- overall_rating: the current overall ML/TF rating.\n"
+        "- headline: one sentence on the firm's current position.\n"
+        "- drivers: the factors most driving the rating, each with its rating and a short note.\n"
+        "- recommended_actions: concrete next steps, each with a priority.\n"
+        "- checks: specific things to verify or update since the last approval (have the "
+        "designated services, client types, delivery channels, or countries changed?).\n"
+        "- recommendation: confirm the assessment as-is, or update specific factors.\n"
+        "Do not invent factors beyond those listed. Facts:\n"
+        + "\n".join(f"- {line}" for line in lines)
+    )
+    data = await get_ai_provider().complete_structured(
+        prompt=prompt, schema=REVIEW_SCHEMA, system=_SYSTEM
+    )
+    return _sanitize_structure(data)
+
+
 async def draft_risk_assessment_summary(
     *,
     firm_name: Optional[str],

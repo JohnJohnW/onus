@@ -35,3 +35,16 @@ class AIProvider(ABC):
         answer. Optional capability - providers that cannot read documents leave this
         unimplemented."""
         raise NotImplementedError("This provider does not support document analysis.")
+
+    async def complete_structured(
+        self,
+        *,
+        prompt: str,
+        schema: dict,
+        system: str = None,
+        max_tokens: int = None,
+    ) -> dict:
+        """Return a JSON object conforming to ``schema`` (a JSON Schema dict). Lets the app
+        render AI output as structured, interactive UI instead of free text. Optional
+        capability - providers that cannot do this leave it unimplemented."""
+        raise NotImplementedError("This provider does not support structured output.")

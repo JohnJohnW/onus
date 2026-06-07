@@ -7,6 +7,7 @@ import { RiskBadge } from "@/components/dashboard/risk-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Markdown } from "@/components/ui/markdown";
+import { ReviewResult, type Review } from "@/components/risk/review-result";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDate, relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -75,9 +76,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
   const [updateNote, setUpdateNote] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [runningReview, setRunningReview] = useState(false);
-  const [reviewNote, setReviewNote] = useState<string | null>(null);
-  const [agentBusy, setAgentBusy] = useState(false);
-  const [agentNote, setAgentNote] = useState<string | null>(null);
+  const [review, setReview] = useState<Review | null>(null);
 
   async function approve() {
     setSubmitting(true);
@@ -128,33 +127,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
       return;
     }
     const d = await res.json();
-    setReviewNote(d.note ?? null);
-  }
-
-  async function runAgentReview() {
-    setAgentBusy(true);
-    setError("");
-    setAgentNote(null);
-    const res = await fetch("/api/risk-assessment/agent-review", { method: "POST" });
-    if (!res.ok) {
-      setAgentBusy(false);
-      setError("Could not start the agent review.");
-      return;
-    }
-    const { session_id: sessionId } = await res.json();
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      const p = await fetch(`/api/risk-assessment/agent-review/${sessionId}`);
-      if (!p.ok) continue;
-      const d = await p.json();
-      if (d.status === "done") {
-        setAgentNote(d.note ?? "(no note returned)");
-        setAgentBusy(false);
-        return;
-      }
-    }
-    setAgentBusy(false);
-    setError("The agent review is taking longer than expected - try again shortly.");
+    setReview(d);
   }
 
   const indicator = INDICATOR[assessment.overall_rating?.toLowerCase()] ?? INDICATOR.unassessed;
@@ -293,47 +266,19 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
                   Reviewing...
                 </>
               ) : (
-                "Run a review with Onus"
+                "Review with Onus"
               )}
             </Button>
             <Button asChild variant="outline" size="sm">
               <a href="/api/risk-assessment/document">Download (Word)</a>
             </Button>
-            {process.env.NEXT_PUBLIC_MANAGED_AGENTS === "true" && (
-              <Button variant="outline" size="sm" onClick={runAgentReview} disabled={agentBusy}>
-                {agentBusy ? (
-                  <>
-                    <Spinner className="mr-2" />
-                    Agent reviewing...
-                  </>
-                ) : (
-                  "Agent review (beta)"
-                )}
-              </Button>
-            )}
           </div>
           {updateNote && !isDraft && (
             <p className="mt-2 text-xs text-neutral-500">
-              Run a review with Onus to re-assess, or re-do onboarding to change your inputs.
+              Review with Onus to re-assess, or re-do onboarding to change your inputs.
             </p>
           )}
-          {reviewNote && (
-            <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-sm">
-              <Markdown content={reviewNote} />
-              <p className="mt-2 text-xs text-neutral-600">
-                A review note from Onus. Approving the assessment discharges the review.
-              </p>
-            </div>
-          )}
-          {agentNote && (
-            <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-sm">
-              <Markdown content={agentNote} />
-              <p className="mt-2 text-xs text-neutral-600">
-                Produced by an autonomous agent in Anthropic&apos;s managed cloud (beta). Review
-                before relying on it.
-              </p>
-            </div>
-          )}
+          {review && <ReviewResult review={review} />}
         </CardContent>
       </Card>
 
