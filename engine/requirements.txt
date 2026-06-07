@@ -11,6 +11,7 @@ python-jose[cryptography]
 httpx
 openpyxl
 python-docx
+reportlab
 python-multipart
 pytest
 anthropic

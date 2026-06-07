@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DownloadDocButtons } from "@/components/ui/download-doc";
 
 type Evaluator = {
   id: string;
@@ -304,12 +305,7 @@ function EvaluationCard({ ev }: { ev: Evaluation }) {
           </p>
           <div className="flex items-center gap-3">
             <span className="text-xs capitalize text-neutral-400">{ev.status.replace(/_/g, " ")}</span>
-            <a
-              href={`/api/evaluations/${ev.id}/document`}
-              className="text-xs text-neutral-400 hover:text-neutral-200"
-            >
-              Download (Word)
-            </a>
+            <DownloadDocButtons path={`/api/evaluations/${ev.id}/document`} />
           </div>
         </div>
 

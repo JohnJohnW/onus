@@ -213,6 +213,17 @@ def test_risk_assessment_docx_download(client):
     assert res.content[:2] == b"PK", res.content[:8]  # .docx is a zip archive
 
 
+def test_risk_assessment_pdf_download(client):
+    """The risk assessment also downloads as a real PDF when format=pdf."""
+    _, token = _signup(client, "Risk Pdf Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    client.post("/risk-assessment/services", json={"services": ["Property transactions"]}, headers=h)
+    res = client.get("/risk-assessment/document?format=pdf", headers=h)
+    assert res.status_code == 200, res.text
+    assert res.headers["content-type"] == "application/pdf"
+    assert res.content[:4] == b"%PDF", res.content[:8]
+
+
 def test_evaluation_docx_download(client):
     """The independent evaluation downloads as a real .docx."""
     _, token = _signup(client, "Eval Docx Firm")

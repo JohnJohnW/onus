@@ -17,6 +17,7 @@ from auth.dependencies import get_current_user
 from deadlines import complete_deadlines
 from database import get_db
 from docgen import build_smr_docx
+from pdfgen import build_smr_pdf
 from models import (
     AmlProgram,
     AuditLog,
@@ -194,6 +195,7 @@ def list_reports(
 @router.get("/{report_id}/document")
 def download_report_document(
     report_id: str,
+    format: str = Query("docx", pattern="^(docx|pdf)$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -209,16 +211,23 @@ def download_report_document(
     firm = db.get(Firm, current_user.firm_id)
     client = db.get(Client, r.related_client_id) if r.related_client_id else None
     matter = db.get(Matter, r.related_matter_id) if r.related_matter_id else None
-    content = build_smr_docx(
+    kw = dict(
         report=r,
         firm_name=firm.name if firm else "Your firm",
         client_name=client.display_name if client else "Not specified",
         matter_desc=(matter.description or matter.designated_service_key) if matter else "Not specified",
     )
+    if format == "pdf":
+        content = build_smr_pdf(**kw)
+        media, ext = "application/pdf", "pdf"
+    else:
+        content = build_smr_docx(**kw)
+        media = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ext = "docx"
     return Response(
         content=content,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": 'attachment; filename="suspicious-matter-report.docx"'},
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="suspicious-matter-report.{ext}"'},
     )
 
 

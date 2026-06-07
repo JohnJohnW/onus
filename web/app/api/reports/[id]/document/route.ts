@@ -4,12 +4,13 @@ import { auth } from "@/lib/auth";
 
 const engineUrl = process.env.ENGINE_INTERNAL_URL ?? "http://localhost:8000";
 
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session?.access_token) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
   }
-  const res = await fetch(`${engineUrl}/reports/${params.id}/document`, {
+  const fmt = new URL(request.url).searchParams.get("format") === "pdf" ? "?format=pdf" : "";
+  const res = await fetch(`${engineUrl}/reports/${params.id}/document${fmt}`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   });
   if (!res.ok) {
