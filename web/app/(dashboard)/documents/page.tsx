@@ -89,6 +89,23 @@ export default async function DocumentsPage() {
           </div>
         )}
       </section>
+
+      <section className="mt-10">
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
+          Analyze a document
+        </h2>
+        <Card className="border-neutral-800 bg-neutral-900/50">
+          <CardContent className="p-5 text-sm text-neutral-400">
+            To have Onus read a document and pull out the key details (beneficial owners, ID
+            checks, source of funds, or a risk summary), open a client and use{" "}
+            <span className="text-neutral-200">Analyze with Onus</span> in their{" "}
+            <span className="text-neutral-200">Documents and evidence</span> section.{" "}
+            <a href="/clients" className="text-neutral-300 underline hover:text-neutral-100">
+              Go to clients
+            </a>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }
