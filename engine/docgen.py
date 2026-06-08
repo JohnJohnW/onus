@@ -335,6 +335,21 @@ def build_risk_assessment_docx(assessment, firm_name: str) -> bytes:
     if assessment.pf_rationale:
         _add_markdown(doc, assessment.pf_rationale)
 
+    doc.add_heading("ML/TF environment and AUSTRAC feedback", level=1)
+    doc.add_paragraph(
+        "In line with AUSTRAC's requirements, this assessment takes account of the broader ML/TF "
+        "environment: AUSTRAC's national risk assessments, its guidance for the legal profession, "
+        "and any feedback provided to the firm. Record the specific AUSTRAC products and feedback "
+        "considered, and revisit this assessment when AUSTRAC updates its guidance."
+    )
+
+    doc.add_heading("Risk response", level=1)
+    doc.add_paragraph(
+        "Risks rated medium or high are managed through the controls documented in the firm's "
+        "AML/CTF program: customer due diligence and enhanced due diligence, ongoing monitoring, "
+        "sanctions and PEP screening, and reporting. See the AML/CTF Compliance Program."
+    )
+
     _disclaimer(
         doc,
         "Keep this as part of your AML/CTF records and retain it for 7 years; it is not lodged "
