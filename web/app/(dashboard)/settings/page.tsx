@@ -81,7 +81,7 @@ export default async function SettingsPage() {
         </Card>
       </section>
 
-      <section>
+      <section id="enrolment" className="scroll-mt-20">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
           AML/CTF enrolment
         </h2>
@@ -91,7 +91,7 @@ export default async function SettingsPage() {
         />
       </section>
 
-      <section>
+      <section id="users" className="scroll-mt-20">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">Users</h2>
         <UsersPanel
           users={users}
@@ -107,21 +107,21 @@ export default async function SettingsPage() {
         <ChangePasswordCard />
       </section>
 
-      <section>
+      <section id="governance" className="scroll-mt-20">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
           Governance roles
         </h2>
         <GovernancePanel users={users} roles={governance_roles} />
       </section>
 
-      <section>
+      <section id="sanctions" className="scroll-mt-20">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
           Sanctions &amp; PEP screening
         </h2>
         <SanctionsPanel />
       </section>
 
-      <section>
+      <section id="data-residency" className="scroll-mt-20">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
           Data residency
         </h2>

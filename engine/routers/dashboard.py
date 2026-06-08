@@ -49,7 +49,7 @@ def _deadline_label(deadline_type: str) -> str:
 
 
 DEADLINE_HREFS = {
-    "enrolment": "/settings",
+    "enrolment": "/settings#enrolment",
     "annual_report": "/reporting",
     "risk_assessment_review": "/risk-profile",
     "independent_evaluation": "/evaluation",
@@ -93,7 +93,7 @@ def _action_href(task: AgentTask) -> Optional[str]:
     if st.get("policy_id"):
         return "/compliance-program"
     if st.get("list_type"):
-        return "/settings"
+        return "/settings#sanctions"
     return {
         "review_smr": "/reporting",
         "review_risk_assessment": "/risk-profile",
@@ -251,7 +251,7 @@ def summary(
             key="enrolment",
             label="Enrolled with AUSTRAC",
             done=bool(firm and firm.enrolment_status == "enrolled"),
-            href="/settings",
+            href="/settings#enrolment",
         ),
         ReadinessMilestoneOut(
             key="risk_assessment", label="Risk assessment approved", done=ra_done, href="/risk-profile"
