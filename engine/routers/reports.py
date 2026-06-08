@@ -231,6 +231,19 @@ def download_report_document(
     )
 
 
+def _validate_owned(db: Session, firm_id, *, client_id=None, matter_id=None) -> None:
+    """Reject client/matter ids that belong to another firm before they are stored on a report
+    or decision log. Defence-in-depth on top of RLS for cross-tenant references."""
+    if client_id is not None:
+        c = db.get(Client, client_id)
+        if c is None or c.firm_id != firm_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found.")
+    if matter_id is not None:
+        m = db.get(Matter, matter_id)
+        if m is None or m.firm_id != firm_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Matter not found.")
+
+
 @router.post("", response_model=ReportOut)
 def create_report(
     body: ReportCreate,
@@ -256,6 +269,9 @@ def create_report(
     now = datetime.now(timezone.utc)
     due, basis = _compute_due(
         body.type, tf=body.tf, lpp=body.lpp_claimed, trigger=now, period_end=body.reporting_period_end
+    )
+    _validate_owned(
+        db, current_user.firm_id, client_id=body.related_client_id, matter_id=body.related_matter_id
     )
     report = Report(
         firm_id=current_user.firm_id,
@@ -328,13 +344,22 @@ def update_report(
     if body.status is not None and body.status not in ("draft", "ready", "lodged", "not_required"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid report status.")
     if body.status in ("draft", "ready", "lodged", "not_required"):
-        r.status = body.status
-        if body.status == "lodged":
+        if body.status == "lodged" and r.status != "lodged":
+            # Lodge once: require SMR grounds, and only record retention / complete deadlines on
+            # the transition into lodged (re-lodging is a no-op, not a duplicate record).
+            if r.type == "smr" and not (r.payload or {}).get("grounds_for_suspicion"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="An SMR needs grounds for suspicion before it can be lodged.",
+                )
+            r.status = "lodged"
             r.lodged_at = datetime.now(timezone.utc)
             r.lodged_by_user_id = current_user.id
             _add_record(db, current_user.firm_id, "report", r.id)
             if r.type == "annual_compliance":
                 complete_deadlines(db, current_user.firm_id, "annual_report", current_user.id)
+        elif body.status != "lodged":
+            r.status = body.status
     db.add(
         AuditLog(
             firm_id=current_user.firm_id,
@@ -359,6 +384,7 @@ def record_decision(
     r = db.get(Report, report_id)
     if r is None or r.firm_id != current_user.firm_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+    _validate_owned(db, current_user.firm_id, client_id=body.client_id, matter_id=body.matter_id)
     db.add(
         ReportDecisionLog(
             firm_id=current_user.firm_id,
