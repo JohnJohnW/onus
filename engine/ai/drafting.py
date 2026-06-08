@@ -165,28 +165,15 @@ REVIEW_SCHEMA = {
     "properties": {
         "overall_rating": {"type": "string", "enum": ["low", "medium", "high", "unassessed"]},
         "headline": {"type": "string"},
-        "drivers": {
+        "findings": {
             "type": "array",
             "items": {
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
-                    "factor": {"type": "string"},
-                    "rating": {"type": "string", "enum": ["low", "medium", "high"]},
-                    "note": {"type": "string"},
-                },
-                "required": ["factor", "rating", "note"],
-            },
-        },
-        "recommended_actions": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
+                    "severity": {"type": "string", "enum": ["high", "medium", "low", "info"]},
                     "title": {"type": "string"},
                     "detail": {"type": "string"},
-                    "priority": {"type": "string", "enum": ["high", "medium", "low"]},
                     "action_key": {
                         "type": "string",
                         "enum": [
@@ -200,7 +187,7 @@ REVIEW_SCHEMA = {
                         ],
                     },
                 },
-                "required": ["title", "detail", "priority", "action_key"],
+                "required": ["severity", "title", "detail", "action_key"],
             },
         },
         "checks": {"type": "array", "items": {"type": "string"}},
@@ -209,8 +196,7 @@ REVIEW_SCHEMA = {
     "required": [
         "overall_rating",
         "headline",
-        "drivers",
-        "recommended_actions",
+        "findings",
         "checks",
         "recommendation",
     ],
@@ -228,8 +214,8 @@ async def generate_review(
     countries: list[tuple[str, str]],
     pf_rating: Optional[str],
 ) -> dict:
-    """Run a periodic review and return it as structured data (rating, drivers, actions,
-    checks, recommendation) for the app to render as interactive UI."""
+    """Run a periodic review and return it as structured data (rating, blended findings with
+    actions, checks, recommendation) for the app to render as interactive UI."""
     since = (
         f" (last approved {last_approved_on})"
         if last_approved_on
@@ -247,12 +233,13 @@ async def generate_review(
         f"today{since}. Using only the facts below, produce a structured review:\n"
         "- overall_rating: the current overall ML/TF rating.\n"
         "- headline: one sentence on the firm's current position.\n"
-        "- drivers: the factors most driving the rating, each with its rating and a short note.\n"
-        "- recommended_actions: concrete next steps, each with a priority and an action_key. "
-        "Set action_key to the single best next step for that action, chosen ONLY from: "
-        "approve_assessment (confirm the assessment as-is), rerun_review, draft_summary (draft "
-        "the overall summary), update_assessment (change factors or inputs), review_clients, "
-        "open_program; use none if no button fits.\n"
+        "- findings: the things that matter about the firm's ML/TF risk right now. Each finding "
+        "blends the issue and its fix: a severity (high/medium/low/info), a short title, a "
+        "one-line detail, and an action_key for the single best next step - chosen ONLY from: "
+        "approve_assessment (confirm the assessment as-is), rerun_review, draft_summary (draft the "
+        "overall summary), update_assessment (change factors or inputs), review_clients, "
+        "open_program; use none if no button fits. Cover the main risk drivers AND the concrete "
+        "next steps as findings - do not separate them.\n"
         "- checks: specific things to verify or update since the last approval (have the "
         "designated services, client types, delivery channels, or countries changed?).\n"
         "- recommendation: confirm the assessment as-is, or update specific factors.\n"
@@ -264,9 +251,9 @@ async def generate_review(
     )
     # Defensive: only ever surface an allow-listed action key (forced tool use is not strictly
     # schema-validated, so a stray value must not reach the client).
-    for action in data.get("recommended_actions") or []:
-        if action.get("action_key") not in _REVIEW_ACTION_KEYS:
-            action["action_key"] = "none"
+    for finding in data.get("findings") or []:
+        if finding.get("action_key") not in _REVIEW_ACTION_KEYS:
+            finding["action_key"] = "none"
     return data
 
 

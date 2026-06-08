@@ -501,11 +501,21 @@ class ReviewActionOut(BaseModel):
     action_key: str = "none"
 
 
+class ReviewFindingOut(BaseModel):
+    severity: str
+    title: str
+    detail: str
+    action_key: str = "none"
+
+
 class ReviewOut(BaseModel):
     overall_rating: str
     headline: str
-    drivers: List[ReviewDriverOut]
-    recommended_actions: List[ReviewActionOut]
+    findings: List[ReviewFindingOut] = []
+    # drivers / recommended_actions kept optional so reviews persisted before the blended-findings
+    # model still deserialize.
+    drivers: List[ReviewDriverOut] = []
+    recommended_actions: List[ReviewActionOut] = []
     checks: List[str]
     recommendation: str
 
