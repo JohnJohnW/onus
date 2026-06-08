@@ -23,6 +23,7 @@ type Candidate = {
   listing_info: string | null;
 };
 type Result = { list_type: string; match_count: number; candidates: Candidate[] };
+type Entry = { primary_name: string; entity_type: string; citizenship: string | null };
 
 const field =
   "rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-600";
@@ -40,6 +41,9 @@ export function SanctionsPanel() {
   const [query, setQuery] = useState("");
   const [screening, setScreening] = useState(false);
   const [results, setResults] = useState<Result[] | null>(null);
+  const [browseQ, setBrowseQ] = useState("");
+  const [browse, setBrowse] = useState<Entry[] | null>(null);
+  const [browsing, setBrowsing] = useState(false);
 
   const loadStatuses = useCallback(async () => {
     const next: Record<string, Status> = {};
@@ -112,6 +116,16 @@ export function SanctionsPanel() {
     if (failed) setErr("One or more lists could not be screened. Please try again.");
   }
 
+  async function browseList() {
+    setBrowsing(true);
+    const res = await fetch(
+      `/api/sanctions/entries?list_type=sanctions&q=${encodeURIComponent(browseQ.trim())}`,
+      { cache: "no-store" }
+    );
+    setBrowsing(false);
+    setBrowse(res.ok ? await res.json() : []);
+  }
+
   const anyLoaded = LISTS.some((l) => statuses[l.key]?.loaded);
 
   return (
@@ -165,6 +179,49 @@ export function SanctionsPanel() {
             {screening ? "Screening..." : "Screen"}
           </Button>
         </form>
+
+        <div className="border-t border-neutral-800 pt-4">
+          <div className="flex items-center gap-2">
+            <input
+              value={browseQ}
+              onChange={(e) => setBrowseQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") browseList();
+              }}
+              placeholder="Browse the loaded sanctions list..."
+              aria-label="Search the loaded list"
+              className={`${field} flex-1`}
+            />
+            <Button size="sm" variant="outline" onClick={browseList} disabled={browsing}>
+              {browsing ? "..." : "Browse"}
+            </Button>
+          </div>
+          {browse && (
+            <div className="mt-2 max-h-64 divide-y divide-neutral-800 overflow-auto rounded-md border border-neutral-800">
+              {browse.length === 0 ? (
+                <p className="p-3 text-xs text-neutral-500">
+                  {browseQ.trim() ? "No entries match that search." : "No entries loaded."}
+                </p>
+              ) : (
+                browse.map((e, i) => (
+                  <div key={i} className="px-3 py-2 text-xs">
+                    <span className="text-neutral-200">{e.primary_name}</span>
+                    <span className="text-neutral-500">
+                      {" - "}
+                      {e.entity_type}
+                      {e.citizenship ? ` - ${e.citizenship}` : ""}
+                    </span>
+                  </div>
+                ))
+              )}
+              {browse.length >= 50 && (
+                <p className="p-2 text-center text-xs text-neutral-600">
+                  Showing first 50 - refine your search.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
 
         {results && LISTS.some((l) => !statuses[l.key]?.loaded) && (
           <p className="text-xs text-amber-400">
