@@ -10,7 +10,7 @@ import hashlib
 import io
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from typing import Optional
 
 from sqlalchemy import insert, update
@@ -79,6 +79,17 @@ def parse_csv(text: str) -> list[dict]:
     return list(csv.DictReader(io.StringIO(text)))
 
 
+def _cell(value):
+    """Coerce an openpyxl cell value to a JSON-serialisable form. Date cells come back as
+    datetime/date/time objects, which the JSONB raw column cannot store - and the DFAT list has
+    date columns (e.g. date of birth), which is what broke the real ingest."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    return str(value)
+
+
 def parse_xlsx(content: bytes) -> list[dict]:
     try:
         from openpyxl import load_workbook
@@ -93,7 +104,7 @@ def parse_xlsx(content: bytes) -> list[dict]:
     for row in rows_iter:
         if row is None or all(c is None for c in row):
             continue
-        out.append({headers[i]: row[i] for i in range(min(len(headers), len(row)))})
+        out.append({headers[i]: _cell(row[i]) for i in range(min(len(headers), len(row)))})
     return out
 
 

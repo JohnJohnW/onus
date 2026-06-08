@@ -797,6 +797,39 @@ def test_large_sanctions_ingest(client):
     assert res.json()["entry_count"] >= 5000, res.json()
 
 
+def test_xlsx_date_cells_are_json_safe(client):
+    """The DFAT xlsx has date columns; openpyxl returns datetime objects that the JSONB raw
+    column cannot store. Uploading an .xlsx with a date cell must ingest without a 500 - this is
+    the exact failure that broke the live DFAT refresh."""
+    import io
+    from datetime import datetime as _dt
+
+    from openpyxl import Workbook
+
+    _, token = _signup(client, "Xlsx Date Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Reference", "Name of Individual", "Date of birth", "Type"])
+    ws.append(["REF1", "Jane Doe", _dt(1980, 1, 1), "individual"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    res = client.post(
+        "/sanctions/upload",
+        data={"list_type": "sanctions"},
+        files={
+            "file": (
+                "list.xlsx",
+                buf.getvalue(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+        headers=h,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["entry_count"] >= 1, res.json()
+
+
 def test_signup_rejects_invalid_email(client):
     res = client.post(
         "/auth/signup",
