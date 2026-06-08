@@ -183,7 +183,9 @@ def screen(
         }
         for e in rows
     ]
-    threshold = body.threshold if body.threshold is not None else DEFAULT_THRESHOLD
+    threshold = (
+        body.threshold if (body.threshold is not None and body.threshold > 0) else DEFAULT_THRESHOLD
+    )
     matches = run_screen(name, entries, threshold)[:50]
     candidates = [
         {

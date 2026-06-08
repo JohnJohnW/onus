@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from agent_log import record_agent_task
-from ai.drafting import draft_review_note, draft_risk_assessment_summary, generate_review
+from ai.drafting import draft_risk_assessment_summary, generate_review
 from ai.managed import (
     cleanup_review_run,
     managed_agents_enabled,
@@ -50,7 +50,6 @@ from schemas import (
     DeliveryChannelsRequest,
     MethodologyRequest,
     PfRequest,
-    ReviewNoteOut,
     ReviewOut,
     RiskAssessmentOut,
     RiskItemOut,
@@ -172,7 +171,8 @@ def _country_explanation(row: RiskAssessmentCountry) -> str:
 
 
 def _recompute_overall(db: Session, assessment_id) -> str:
-    """Overall rating aggregated across all four risk categories (see aggregate_overall)."""
+    """Overall rating aggregated across all four risk categories (see aggregate_overall).
+    Planned (not-yet-offered) factors are excluded so the rating reflects current risk."""
     ratings: list[str] = []
     for model in (
         RiskAssessmentService,
@@ -180,9 +180,10 @@ def _recompute_overall(db: Session, assessment_id) -> str:
         RiskAssessmentDeliveryChannel,
         RiskAssessmentCountry,
     ):
-        for (rating,) in db.execute(
-            select(model.inherent_risk_rating).where(model.risk_assessment_id == assessment_id)
-        ).all():
+        stmt = select(model.inherent_risk_rating).where(model.risk_assessment_id == assessment_id)
+        if hasattr(model, "is_planned"):
+            stmt = stmt.where(model.is_planned.isnot(True))
+        for (rating,) in db.execute(stmt).all():
             if rating:
                 ratings.append(rating)
     return aggregate_overall(ratings)
