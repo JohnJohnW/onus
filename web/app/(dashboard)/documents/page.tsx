@@ -48,8 +48,9 @@ export default async function DocumentsPage() {
       <header className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">Documents</h1>
         <p className="mt-2 text-sm text-neutral-400">
-          Onus prepares these for you. Download a current Word copy anytime to review, file, or
-          hand to an external evaluator.
+          Onus prepares these for you. Your program, risk assessment and evaluation are kept on
+          file (a 7-year record) and produced to AUSTRAC on request - they are not lodged. Reports
+          such as SMRs are lodged through AUSTRAC Online; Onus prepares the content to enter.
         </p>
       </header>
 
