@@ -435,25 +435,7 @@ def _brief_block(label: str, items: list[str]) -> str:
     return f"{label}:\n{body}"
 
 
-async def draft_compliance_brief(
-    *, firm_name: Optional[str], did: list[str], needs: list[str], deadlines: list[str]
-) -> str:
-    """Draft a short plain-English compliance brief for the principal from recent activity,
-    what needs attention, and upcoming deadlines."""
-    prompt = (
-        f"Write a short AML/CTF compliance brief for the principal of "
-        f"{firm_name or 'the firm'}. In plain English, cover what Onus has done recently, what "
-        "needs the principal's attention now, and what is coming up. 3 to 5 sentences, direct, "
-        "no preamble or heading. Base it only on the facts below; do not invent anything. If a "
-        "section is empty, say there is nothing there.\n\n"
-        + _brief_block("What Onus did recently", did)
-        + "\n\n"
-        + _brief_block("Needs your attention", needs)
-        + "\n\n"
-        + _brief_block("Upcoming deadlines", deadlines)
-    )
-    text = await get_ai_provider().complete(prompt, system=_SYSTEM)
-    return _sanitize(text) + DISCLAIMER
+# draft_compliance_brief removed: the live brief flow is generate_brief (structured output).
 
 
 _BRIEF_ACTION_KEYS = {
@@ -591,38 +573,7 @@ async def extract_identity(*, file_bytes: bytes, filename: str, content_type: st
     return ident, _sanitize(text) + DISCLAIMER
 
 
-async def draft_review_note(
-    *,
-    firm_name: Optional[str],
-    overall_rating: Optional[str],
-    last_approved_on: Optional[str],
-    services: list[tuple[str, str]],
-    customer_types: list[tuple[str, str]],
-    channels: list[tuple[str, str]],
-    countries: list[tuple[str, str]],
-    pf_rating: Optional[str],
-) -> str:
-    """Draft a periodic-review note: current picture + what to check since last approval."""
-    since = f" (last approved {last_approved_on})" if last_approved_on else " (no prior approval on record)"
-    lines = [
-        _fmt_factors("Designated services", services),
-        _fmt_factors("Customer types", customer_types),
-        _fmt_factors("Delivery channels", channels),
-        _fmt_factors("Countries", countries),
-        f"Proliferation financing: {pf_rating or 'not yet assessed'}.",
-    ]
-    prompt = (
-        f"Write a short periodic-review note for {firm_name or 'the firm'}'s AML/CTF risk "
-        f"assessment, as of today{since}. State the current overall rating "
-        f"({overall_rating or 'not yet rated'}) and its main drivers, then list what the firm "
-        "should check or update since the last approval (have the designated services, client "
-        "types, delivery channels, or countries changed?). End with a clear recommendation: "
-        "confirm as-is, or update specific factors. 4 to 6 sentences, plain English, no "
-        "preamble. Base it only on the facts below.\n\n"
-        + "\n".join(f"- {line}" for line in lines)
-    )
-    text = await get_ai_provider().complete(prompt, system=_SYSTEM)
-    return _sanitize(text) + DISCLAIMER
+# draft_review_note removed: the live review flow is generate_review (structured output).
 
 
 _SOF_INSTRUCTION = (

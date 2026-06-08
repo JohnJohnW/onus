@@ -488,10 +488,6 @@ class AnalyzeResultOut(BaseModel):
     source_of_funds: Optional[str] = None
 
 
-class ReviewNoteOut(BaseModel):
-    note: str
-
-
 class ReviewDriverOut(BaseModel):
     factor: str
     rating: str
