@@ -24,7 +24,7 @@ from models import SanctionsEntry, SanctionsListVersion, SanctionsScreening, Use
 from sanctions.ingest import content_hash, import_version, parse_csv, parse_xlsx, rows_to_entries
 from sanctions.matching import DEFAULT_THRESHOLD
 from sanctions.matching import screen as run_screen
-from schemas import SanctionsStatusOut, ScreenRequest, ScreenResultOut
+from schemas import SanctionsEntryOut, SanctionsStatusOut, ScreenRequest, ScreenResultOut
 
 router = APIRouter()
 
@@ -80,6 +80,37 @@ def get_status(
 ) -> SanctionsStatusOut:
     _config(list_type)
     return _status(db, list_type)
+
+
+@router.get("/entries", response_model=list[SanctionsEntryOut])
+def list_entries(
+    list_type: str = Query("sanctions"),
+    q: str = Query(""),
+    limit: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[SanctionsEntryOut]:
+    """Browse/search the currently loaded list (global reference data) for transparency - so a
+    firm can see what it is screening against, not just a loaded count."""
+    _config(list_type)
+    version = _current(db, list_type)
+    if version is None:
+        return []
+    stmt = select(SanctionsEntry).where(SanctionsEntry.version_id == version.id)
+    term = q.strip()
+    if term:
+        stmt = stmt.where(SanctionsEntry.primary_name.ilike(f"%{term}%"))
+    stmt = stmt.order_by(SanctionsEntry.primary_name).limit(limit)
+    return [
+        SanctionsEntryOut(
+            primary_name=e.primary_name,
+            entity_type=e.entity_type,
+            reference=e.reference,
+            citizenship=e.citizenship,
+            listing_info=e.listing_info,
+        )
+        for e in db.scalars(stmt).all()
+    ]
 
 
 async def _fetch_and_ingest(db: Session, list_type: str) -> SanctionsStatusOut:

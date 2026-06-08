@@ -830,6 +830,23 @@ def test_xlsx_date_cells_are_json_safe(client):
     assert res.json()["entry_count"] >= 1, res.json()
 
 
+def test_browse_loaded_sanctions_entries(client):
+    """The loaded list is browsable/searchable for transparency."""
+    _, token = _signup(client, "Browse List Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    csv_bytes = b"Reference,Name of Individual,Type\nREF1,Jane Doe,individual\nREF2,John Roe,individual\n"
+    up = client.post(
+        "/sanctions/upload",
+        data={"list_type": "sanctions"},
+        files={"file": ("l.csv", csv_bytes, "text/csv")},
+        headers=h,
+    )
+    assert up.status_code == 200, up.text
+    res = client.get("/sanctions/entries?q=jane", headers=h)
+    assert res.status_code == 200, res.text
+    assert any("Jane" in e["primary_name"] for e in res.json()), res.json()
+
+
 def test_signup_rejects_invalid_email(client):
     res = client.post(
         "/auth/signup",

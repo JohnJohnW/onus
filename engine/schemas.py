@@ -800,6 +800,14 @@ class EvaluationsOut(BaseModel):
 # ----- Sanctions screening -----
 
 
+class SanctionsEntryOut(BaseModel):
+    primary_name: str
+    entity_type: str
+    reference: Optional[str] = None
+    citizenship: Optional[str] = None
+    listing_info: Optional[str] = None
+
+
 class SanctionsStatusOut(BaseModel):
     list_type: str = "sanctions"  # sanctions | pep
     loaded: bool = False
