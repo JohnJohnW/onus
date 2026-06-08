@@ -29,6 +29,21 @@ const FEATURES = [
   },
 ];
 
+const HOW = [
+  {
+    title: "AI drafts, you approve",
+    body: "Onus prepares every risk assessment, policy, CDD plan and report. A human reviews and signs off - agents propose, you dispose. Nothing is lodged or approved automatically.",
+  },
+  {
+    title: "Guided, not just generated",
+    body: "Results arrive as ranked findings with the next action attached - approve, update, screen, record - so you always know what to do next, not a wall of text.",
+  },
+  {
+    title: "Submission-ready documents",
+    body: "Download any assessment, program, report or evaluation as a branded Word or PDF, ready to file with AUSTRAC or hand to an independent evaluator.",
+  },
+];
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100">
@@ -85,6 +100,20 @@ export default function Home() {
             <div key={f.title} className="bg-neutral-950 p-6">
               <h3 className="text-sm font-medium text-neutral-100">{f.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-neutral-400">{f.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-5xl px-6 pb-20">
+        <h2 className="mb-6 text-center text-xs font-medium uppercase tracking-wide text-neutral-500">
+          How Onus works
+        </h2>
+        <div className="grid gap-6 sm:grid-cols-3">
+          {HOW.map((h) => (
+            <div key={h.title}>
+              <h3 className="text-sm font-medium text-neutral-100">{h.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-neutral-400">{h.body}</p>
             </div>
           ))}
         </div>
