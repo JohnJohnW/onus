@@ -334,6 +334,19 @@ def test_risk_review_note(client, monkeypatch):
     assert any("review" in a["summary"].lower() for a in activity), activity
 
 
+def test_review_persists_and_reloads(client, monkeypatch):
+    """A run review is persisted and returned by /last-review, so it survives a page refresh."""
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    _, token = _signup(client, "Persist Review Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    client.post("/risk-assessment/services", json={"services": ["Property transactions"]}, headers=h)
+    assert client.get("/risk-assessment/last-review", headers=h).json() is None
+    client.post("/risk-assessment/review", headers=h)
+    saved = client.get("/risk-assessment/last-review", headers=h).json()
+    assert saved and saved["overall_rating"]
+    assert isinstance(saved["recommended_actions"], list)
+
+
 def test_document_extracts_source_of_funds(client, monkeypatch):
     """The source-of-funds purpose returns a statement to save on the client file."""
     monkeypatch.setenv("AI_PROVIDER", "mock")

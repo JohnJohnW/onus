@@ -554,9 +554,26 @@ async def run_review(
         human_action_required=True,
         human_action_type="review_risk_assessment",
         input_state={"risk_assessment_id": str(assessment.id)},
+        output_state={"review": result.model_dump(mode="json")},
     )
     db.commit()
     return result
+
+
+@router.get("/last-review", response_model=Optional[ReviewOut])
+def last_review(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Optional[ReviewOut]:
+    """The most recently run review, persisted on its agent task, so it renders on page load
+    (not only right after the user clicks Review with Onus)."""
+    task = db.scalar(
+        select(AgentTask)
+        .where(AgentTask.firm_id == current_user.firm_id, AgentTask.task_type == "risk_review")
+        .order_by(AgentTask.created_at.desc())
+    )
+    review = (task.output_state or {}).get("review") if task else None
+    return ReviewOut(**review) if review else None
 
 
 @router.post("/agent-review", response_model=AgentReviewStartOut)

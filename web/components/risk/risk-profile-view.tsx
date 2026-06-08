@@ -68,7 +68,13 @@ const INDICATOR: Record<string, { ring: string; dot: string }> = {
   unassessed: { ring: "bg-neutral-500/15", dot: "bg-neutral-500" },
 };
 
-export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) {
+export function RiskProfileView({
+  assessment,
+  initialReview,
+}: {
+  assessment: RiskAssessment;
+  initialReview?: Review | null;
+}) {
   const router = useRouter();
   const isDraft = assessment.status === "draft";
   const [reviewing, setReviewing] = useState(false);
@@ -78,7 +84,7 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
   const [updateNote, setUpdateNote] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [runningReview, setRunningReview] = useState(false);
-  const [review, setReview] = useState<Review | null>(null);
+  const [review, setReview] = useState<Review | null>(initialReview ?? null);
 
   async function approve() {
     setSubmitting(true);
