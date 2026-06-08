@@ -321,8 +321,26 @@ def record_cdd(
         if matter is None or matter.firm_id != current_user.firm_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Matter not found.")
 
-    outcome = "fail" if sanctions else "pass"
-    c.cdd_status = "blocked" if sanctions else "complete"
+    # Enhanced CDD (foreign PEP / high-risk) is not "complete" on identity alone: the AML/CTF
+    # Rules require source of funds and source of wealth. Gate completion on that evidence so the
+    # before-you-act matter gate never opens for an unverified high-risk client.
+    missing_edd: list[str] = []
+    if level == "enhanced" and not sanctions:
+        if not (c.source_of_funds or "").strip():
+            missing_edd.append("source of funds")
+        if not (c.source_of_wealth or "").strip():
+            missing_edd.append("source of wealth")
+
+    if sanctions:
+        outcome = "fail"
+        c.cdd_status = "blocked"
+    elif missing_edd:
+        outcome = "pending"
+        c.cdd_status = "in_progress"
+        edd_reason = (edd_reason + " " if edd_reason else "") + f"Pending: provide {', '.join(missing_edd)}."
+    else:
+        outcome = "pass"
+        c.cdd_status = "complete"
     now = datetime.now(timezone.utc)
     db.add(
         CddCheck(

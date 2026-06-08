@@ -729,6 +729,42 @@ def test_program_approval_blocked_until_documented(client):
     assert res.status_code == 400, res.text
 
 
+def test_enhanced_cdd_requires_source_of_funds(client):
+    """Foreign-PEP (enhanced) CDD is not complete on identity alone - it needs source of funds
+    and wealth before the before-you-act matter gate can open."""
+    _, token = _signup(client, "EDD Gate Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    cid = client.post(
+        "/clients",
+        json={"type": "company_domestic", "display_name": "PEP Co", "is_pep": True, "pep_kind": "foreign"},
+        headers=h,
+    ).json()["id"]
+    res = client.post(f"/clients/{cid}/cdd", json={"kyc_fields": {"id": "checked"}}, headers=h)
+    assert res.status_code == 200, res.text
+    assert res.json()["cdd_status"] == "in_progress", res.json()
+    res2 = client.post(
+        f"/clients/{cid}/cdd",
+        json={"source_of_funds": "Salary", "source_of_wealth": "Long-term employment"},
+        headers=h,
+    )
+    assert res2.json()["cdd_status"] == "complete", res2.json()
+
+
+def test_report_rejects_cross_tenant_client(client):
+    """create_report must reject a related_client_id that belongs to another firm."""
+    _, ta = _signup(client, "Report Tenant A")
+    _, tb = _signup(client, "Report Tenant B")
+    a_client = client.post(
+        "/clients", json={"type": "company_domestic", "display_name": "A Client"},
+        headers={"Authorization": f"Bearer {ta}"},
+    ).json()["id"]
+    res = client.post(
+        "/reports", json={"type": "smr", "related_client_id": a_client, "payload": {}},
+        headers={"Authorization": f"Bearer {tb}"},
+    )
+    assert res.status_code == 404, res.text
+
+
 def test_signup_rejects_invalid_email(client):
     res = client.post(
         "/auth/signup",
