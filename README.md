@@ -236,9 +236,9 @@ Stated plainly, so a firm knows what Onus does and does not do:
 - **Adverse-media screening is manual.** There is no authoritative adverse-media list, so
   Onus does not fabricate one: sanctions and PEP screening are automated, adverse media is a
   documented manual check. A commercial provider is an optional upgrade, not a legal gap.
-- **AI output is a draft.** Policy and SMR text is a starting point for human review; Onus
-  forces plain ASCII and grounds prompts in the Act, but a person must read and approve every
-  draft.
+- **AI output is a draft.** Every AI output (risk summary, policies, CDD plans, periodic
+  reviews, briefs, SMR narratives, document analysis) is a starting point for human review;
+  Onus forces plain ASCII and grounds prompts in the Act, but a person must read and approve it.
 - **Edge rate limiting and at-rest encryption are deployment responsibilities** (see the
   hardening checklist). The app ships security headers and a per-account login throttle, but
   volumetric protection and disk encryption belong to the infrastructure layer.
@@ -255,9 +255,9 @@ Stated plainly, so a firm knows what Onus does and does not do:
 | Service | Stack |
 |---|---|
 | `web` | Next.js 14 (App Router) - TypeScript - Tailwind - next-auth - shadcn/ui |
-| `engine` | FastAPI - Python 3.11 - SQLAlchemy 2 - Pydantic v2 - Alembic - python-jose - bcrypt - openpyxl - python-multipart |
+| `engine` | FastAPI - Python 3.11 - SQLAlchemy 2 - Pydantic v2 - Alembic - python-jose - bcrypt - httpx - openpyxl - python-docx - reportlab - python-multipart |
 | `db` | PostgreSQL 15 + pgvector (RLS-enforced; non-superuser app role) |
-| AI | Provider-agnostic (`engine/ai/`) - Anthropic / OpenAI / Azure OpenAI, + a mock for tests |
+| AI | Provider-agnostic (`engine/ai/`) - Anthropic Claude (primary: structured outputs + Files API document understanding); OpenAI / Azure OpenAI for text; a mock for tests |
 
 ## Repository layout
 
@@ -267,7 +267,8 @@ onus/
 |-- engine/               # FastAPI compliance API
 |   |-- models.py         # SQLAlchemy models
 |   |-- routers/          # auth, risk_assessment, program, clients, alerts, reports, evaluations, sanctions, documents, firms, dashboard, ...
-|   |-- ai/               # provider-agnostic AI: drafting + matter classification
+|   |-- ai/               # provider-agnostic AI: drafting, structured outputs, document understanding
+|   |-- docgen.py / pdfgen.py  # branded Word + PDF document generation
 |   |-- sanctions/        # sanctions/PEP list ingest + name matching
 |   |-- storage.py        # document/evidence file store; deadlines.py, agent_log.py
 |   |-- alembic/          # versioned migrations (incl. RLS + onus_app role)
