@@ -286,10 +286,10 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
       <div className="mb-6">
         <RiskHeatmap
           rows={[
-            { label: "Designated services", items: assessment.services },
-            { label: "Customer types", items: assessment.client_types },
-            { label: "Delivery channels", items: assessment.channels },
-            { label: "Countries", items: assessment.countries },
+            { label: "Designated services", anchor: "cat-services", items: assessment.services },
+            { label: "Customer types", anchor: "cat-clients", items: assessment.client_types },
+            { label: "Delivery channels", anchor: "cat-channels", items: assessment.channels },
+            { label: "Countries", anchor: "cat-countries", items: assessment.countries },
           ]}
         />
       </div>
@@ -298,21 +298,25 @@ export function RiskProfileView({ assessment }: { assessment: RiskAssessment }) 
       <div className="space-y-6">
         <CategoryCard
           title="Services risk"
+          anchor="cat-services"
           items={assessment.services}
           emptyText="No designated services recorded."
         />
         <CategoryCard
           title="Client risk"
+          anchor="cat-clients"
           items={assessment.client_types}
           emptyText="No client types recorded."
         />
         <CategoryCard
           title="Delivery channel risk"
+          anchor="cat-channels"
           items={assessment.channels}
           emptyText="No delivery channels recorded."
         />
         <CategoryCard
           title="Country risk"
+          anchor="cat-countries"
           items={assessment.countries}
           emptyText="Your firm currently has no elevated country risk."
         />
@@ -325,13 +329,15 @@ function CategoryCard({
   title,
   items,
   emptyText,
+  anchor,
 }: {
   title: string;
   items: RiskItem[];
   emptyText: string;
+  anchor?: string;
 }) {
   return (
-    <section>
+    <section id={anchor} className="scroll-mt-20">
       <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">{title}</h2>
       <Card className="border-neutral-800 bg-neutral-900/50">
         {items.length === 0 ? (
