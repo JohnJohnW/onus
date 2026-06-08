@@ -92,7 +92,7 @@ flowchart TD
 
 | Section | What it does | AUSTRAC basis |
 |---|---|---|
-| **Dashboard** | Reminders (overdue / due-soon), actions required, the live "Onus activity" feed, completable deadlines, and an on-demand monitoring scan | - |
+| **Dashboard** | A compliance-readiness ring + milestone checklist, actions-required and a live "Onus activity" feed where every item deep-links to its fix, quick actions, reminders, completable deadlines, and an on-demand monitoring scan | - |
 | **Risk Profile** | ML/TF/PF risk assessment - 4 categories, likelihood x impact matrix, country-risk engine, PF screen, AUSTRAC-communications register | Step 2 - Act s26C |
 | **Compliance Program** | Policy set + obligation coverage + AI drafting + document-and-approve (role-gated senior-manager sign-off) + review lifecycle with trigger/deadline completion | Steps 1, 3, 4 - Act ss26B-26P |
 | **Clients & Matters** | Per-customer-type KYC, beneficial owners, the CDD-tier engine, the before-you-act gate, AI matter classification, inline sanctions/PEP screening, document/evidence upload | Step 3 - Act Pt 2; Risk insights |
@@ -102,9 +102,15 @@ flowchart TD
 | **Evaluation** | Independent evaluation - AAN-staggered deadline, independence gate, findings & remediation | Step 5 - Act s26F(4)(f); Transitional Rules s17 |
 | **Settings & team** | Firm details, user/team management with role-gated approvals, governance roles (s26J eligibility), sanctions/PEP list management, and an immutable audit log | Act s116, s26J |
 
-Cross-cutting: an **AI layer** (policy + SMR drafting and matter classification,
-human-in-the-loop, plain-ASCII output), the **agent activity feed**, an **onboarding
-wizard** that builds the firm's first risk assessment, and **document/evidence storage**.
+Cross-cutting: an **AI layer** (Anthropic Claude, provider-agnostic) that drafts policies,
+risk-assessment summaries, CDD plans, periodic reviews, SMR narratives and compliance
+briefs, classifies matters, and reads uploaded documents (beneficial owners, identity,
+source of funds) via the Files API. AI output is **structured** - schema-validated JSON
+rendered as ranked findings with the next action attached (approve, update, screen, record),
+not walls of text - and stays **human-in-the-loop** and plain-ASCII. Every assessment,
+program, report and evaluation downloads as a **branded Word or PDF**. Plus visual risk
+insights (a **risk heatmap** and **policy-coverage grid**), the **agent activity feed**, and
+an **onboarding wizard** that builds the firm's first risk assessment.
 
 ---
 
