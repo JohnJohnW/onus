@@ -1,4 +1,5 @@
 import { RiskEnhancements, type Communication } from "@/components/risk/risk-enhancements";
+import { type Review } from "@/components/risk/review-result";
 import { RiskProfileView, type RiskAssessment } from "@/components/risk/risk-profile-view";
 import { auth } from "@/lib/auth";
 
@@ -37,13 +38,16 @@ export default async function RiskProfilePage() {
     );
   }
 
-  const communications = token
-    ? await getJson<Communication[]>("/risk-assessment/communications", token, [])
-    : [];
+  const [communications, lastReview] = token
+    ? await Promise.all([
+        getJson<Communication[]>("/risk-assessment/communications", token, []),
+        getJson<Review | null>("/risk-assessment/last-review", token, null),
+      ])
+    : [[] as Communication[], null];
 
   return (
     <>
-      <RiskProfileView assessment={assessment} />
+      <RiskProfileView assessment={assessment} initialReview={lastReview} />
       <RiskEnhancements assessment={assessment} communications={communications} />
     </>
   );
