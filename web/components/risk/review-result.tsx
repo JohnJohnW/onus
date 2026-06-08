@@ -11,11 +11,15 @@ import {
 } from "@/components/ai/result-card";
 import { SEVERITY_ORDER, severityOf } from "@/components/ai/severity";
 
+type Finding = { severity: string; title: string; detail: string; action_key?: string };
+
 export type Review = {
   overall_rating: string;
   headline: string;
-  drivers: { factor: string; rating: string; note: string }[];
-  recommended_actions: { title: string; detail: string; priority: string; action_key?: string }[];
+  findings?: Finding[];
+  // Older persisted reviews used a split shape; kept for back-compat rendering.
+  drivers?: { factor: string; rating: string; note: string }[];
+  recommended_actions?: { title: string; detail: string; priority: string; action_key?: string }[];
   checks: string[];
   recommendation: string;
 };
@@ -49,42 +53,46 @@ const REVIEW_ACTIONS: Record<string, AiAction> = {
   open_program: { mode: "navigate", label: "Open compliance program", href: "/compliance-program" },
 };
 
-function bySeverity(a: { sev?: string }, b: { sev?: string }) {
-  return SEVERITY_ORDER[severityOf(a.sev)] - SEVERITY_ORDER[severityOf(b.sev)];
+// Blend the review into a single findings list: every item is an issue AND its fix. Falls back
+// to synthesising findings from the old drivers + recommended_actions split if needed.
+function blendedFindings(review: Review): Finding[] {
+  if (review.findings && review.findings.length > 0) return review.findings;
+  return [
+    ...(review.drivers ?? []).map((d) => ({ severity: d.rating, title: d.factor, detail: d.note })),
+    ...(review.recommended_actions ?? []).map((a) => ({
+      severity: a.priority,
+      title: a.title,
+      detail: a.detail,
+      action_key: a.action_key,
+    })),
+  ];
 }
 
 export function ReviewResult({ review }: { review: Review }) {
-  const drivers = [...review.drivers].sort((a, b) => bySeverity({ sev: a.rating }, { sev: b.rating }));
-  const actions = [...review.recommended_actions].sort((a, b) =>
-    bySeverity({ sev: a.priority }, { sev: b.priority })
+  const findings = [...blendedFindings(review)].sort(
+    (a, b) => SEVERITY_ORDER[severityOf(a.severity)] - SEVERITY_ORDER[severityOf(b.severity)]
   );
-  const needAttention = actions.filter((a) => severityOf(a.priority) !== "low").length;
+  const needAttention = findings.filter((f) => {
+    const s = severityOf(f.severity);
+    return s === "high" || s === "medium";
+  }).length;
 
   return (
     <AiResultCard title="Review by Onus">
       <VerdictBanner rating={review.overall_rating} headline={review.headline} />
 
-      {drivers.length > 0 && (
-        <div className="space-y-2">
-          <SectionLabel>What is driving the rating</SectionLabel>
-          {drivers.map((d, i) => (
-            <FindingCard key={i} severity={d.rating} title={d.factor} detail={d.note} />
-          ))}
-        </div>
-      )}
-
-      {actions.length > 0 && (
+      {findings.length > 0 && (
         <div className="space-y-2">
           <SectionLabel>
-            Recommended actions{needAttention > 0 ? ` - ${needAttention} need attention` : ""}
+            What matters now{needAttention > 0 ? ` - ${needAttention} need attention` : ""}
           </SectionLabel>
-          {actions.map((a, i) => (
+          {findings.map((f, i) => (
             <FindingCard
               key={i}
-              severity={a.priority}
-              title={a.title}
-              detail={a.detail}
-              action={a.action_key && a.action_key !== "none" ? REVIEW_ACTIONS[a.action_key] : undefined}
+              severity={f.severity}
+              title={f.title}
+              detail={f.detail}
+              action={f.action_key && f.action_key !== "none" ? REVIEW_ACTIONS[f.action_key] : undefined}
             />
           ))}
         </div>

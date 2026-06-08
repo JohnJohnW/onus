@@ -328,7 +328,7 @@ def test_risk_review_note(client, monkeypatch):
     assert res.status_code == 200, res.text
     data = res.json()
     assert data["overall_rating"] and data["headline"]
-    assert isinstance(data["recommended_actions"], list)
+    assert isinstance(data["findings"], list)
     assert isinstance(data["checks"], list)
     activity = client.get("/dashboard/summary", headers=h).json().get("recent_agent_activity", [])
     assert any("review" in a["summary"].lower() for a in activity), activity
@@ -344,7 +344,7 @@ def test_review_persists_and_reloads(client, monkeypatch):
     client.post("/risk-assessment/review", headers=h)
     saved = client.get("/risk-assessment/last-review", headers=h).json()
     assert saved and saved["overall_rating"]
-    assert isinstance(saved["recommended_actions"], list)
+    assert isinstance(saved["findings"], list)
 
 
 def test_document_extracts_source_of_funds(client, monkeypatch):
