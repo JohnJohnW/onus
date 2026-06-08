@@ -13,7 +13,7 @@ import os
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -21,7 +21,7 @@ from agent_log import record_agent_task
 from auth.dependencies import get_current_user, require_admin
 from database import get_db
 from models import SanctionsEntry, SanctionsListVersion, SanctionsScreening, User
-from sanctions.ingest import import_version, parse_csv, parse_xlsx, rows_to_entries
+from sanctions.ingest import content_hash, import_version, parse_csv, parse_xlsx, rows_to_entries
 from sanctions.matching import DEFAULT_THRESHOLD
 from sanctions.matching import screen as run_screen
 from schemas import SanctionsStatusOut, ScreenRequest, ScreenResultOut
@@ -82,14 +82,10 @@ def get_status(
     return _status(db, list_type)
 
 
-@router.post("/refresh", response_model=SanctionsStatusOut)
-async def refresh(
-    list_type: str = Query("sanctions"),
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-) -> SanctionsStatusOut:
-    """Auto-fetch the latest list from the configured URL (sanctions: DFAT). Admin only:
-    the list is global, shared by every firm, so ingestion must not be a member action."""
+async def _fetch_and_ingest(db: Session, list_type: str) -> SanctionsStatusOut:
+    """Fetch the configured list (sanctions: DFAT), parse it, and ingest it as the current
+    snapshot - skipping if the content is unchanged so repeated refreshes do not churn the DB.
+    Shared by the admin Refresh and the scheduled auto-refresh."""
     source, _env, _default, label = _config(list_type)
     url = _list_url(list_type)
     if not url:
@@ -97,8 +93,7 @@ async def refresh(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"No {label} list URL is configured. Upload the file manually instead.",
         )
-    # Some government/WAF endpoints reject the default httpx User-Agent; present a browser-like
-    # one so the fetch succeeds from the serverless egress.
+    # Some government/WAF endpoints reject the default httpx User-Agent; present a browser-like one.
     ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     try:
         async with httpx.AsyncClient(
@@ -118,8 +113,32 @@ async def refresh(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Could not parse the list: {exc}")
     if not entries:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No entries found in the fetched file.")
+    current = _current(db, list_type)
+    if current is not None and current.content_hash == content_hash(entries):
+        return _status(db, list_type)  # unchanged - keep the current snapshot, no churn
     import_version(db, source=source, origin="auto_fetch", entries=entries, list_type=list_type, note=f"Auto-fetched {label}")
     return _status(db, list_type)
+
+
+@router.post("/refresh", response_model=SanctionsStatusOut)
+async def refresh(
+    list_type: str = Query("sanctions"),
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> SanctionsStatusOut:
+    """Auto-fetch the latest list from the configured URL (sanctions: DFAT). Admin only: the
+    list is global, shared by every firm, so ingestion must not be a member action."""
+    return await _fetch_and_ingest(db, list_type)
+
+
+@router.api_route("/cron-refresh", methods=["GET", "POST"], include_in_schema=False)
+async def cron_refresh(request: Request, db: Session = Depends(get_db)) -> SanctionsStatusOut:
+    """Scheduled auto-refresh of the DFAT sanctions list (Vercel Cron) so it stays current
+    without anyone clicking. Gated by CRON_SECRET so only the scheduler can trigger it."""
+    secret = os.environ.get("CRON_SECRET")
+    if not secret or request.headers.get("authorization") != f"Bearer {secret}":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden.")
+    return await _fetch_and_ingest(db, "sanctions")
 
 
 @router.post("/upload", response_model=SanctionsStatusOut)

@@ -1,8 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["syd1"],
-  "builds": [
-    { "src": "api/index.py", "use": "@vercel/python", "config": { "includeFiles": "assets/**" } }
-  ],
-  "routes": [{ "src": "/(.*)", "dest": "api/index.py" }]
+  "functions": {
+    "api/index.py": { "maxDuration": 60, "includeFiles": "assets/**" }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index.py" }],
+  "crons": [{ "path": "/sanctions/cron-refresh", "schedule": "0 17 * * 1" }]
 }
