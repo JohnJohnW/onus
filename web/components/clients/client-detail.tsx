@@ -65,6 +65,7 @@ type ScreenResult = {
   candidates: ScreenCandidate[];
   noList?: boolean;
   error?: boolean;
+  list_type?: string;
 };
 export type Indicator = { group: string; group_label: string; key: string; label: string };
 export type ClientDetail = {
@@ -104,7 +105,9 @@ function ScreenResultView({ result }: { result: ScreenResult }) {
   if (result.noList) {
     return (
       <p className="text-xs text-amber-300">
-        No sanctions list is loaded. Load the DFAT Consolidated List in Settings, then screen.
+        {result.list_type === "pep"
+          ? "No PEP list is loaded. Upload a PEP list in Settings, then screen."
+          : "No sanctions list is loaded. Load the DFAT Consolidated List in Settings, then screen."}
       </p>
     );
   }
@@ -392,7 +395,8 @@ export function ClientDetailView({
         record: true,
       }),
     });
-    if (res.status === 409) return { query_name: name, match_count: 0, candidates: [], noList: true };
+    if (res.status === 409)
+      return { query_name: name, match_count: 0, candidates: [], noList: true, list_type: listType };
     if (!res.ok) return { query_name: name, match_count: 0, candidates: [], error: true };
     return res.json();
   }
