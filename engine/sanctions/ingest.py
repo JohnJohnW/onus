@@ -9,6 +9,7 @@ import csv
 import hashlib
 import io
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -137,29 +138,30 @@ def import_version(
     db.add(version)
     db.flush()  # assigns version.id
     if entries:
-        # Bulk insert (SQLAlchemy 2.0 insertmanyvalues) instead of thousands of per-row ORM
-        # adds: the DFAT list is ~7k entries, and one-by-one inserts time out the serverless
-        # function. This batches them into a few multi-row INSERTs.
-        db.execute(
-            insert(SanctionsEntry),
-            [
-                {
-                    "version_id": version.id,
-                    "reference": entry.get("reference") or None,
-                    "entity_type": entry.get("entity_type") or "unknown",
-                    "primary_name": entry.get("primary_name") or "",
-                    "search_names": entry.get("search_names") or [],
-                    "aliases": entry.get("aliases") or [],
-                    "dob": entry.get("dob") or None,
-                    "place_of_birth": entry.get("place_of_birth") or None,
-                    "citizenship": entry.get("citizenship") or None,
-                    "address": entry.get("address") or None,
-                    "listing_info": entry.get("listing_info") or None,
-                    "raw": entry.get("raw"),
-                }
-                for entry in entries
-            ],
-        )
+        # Bulk insert in chunks. The DFAT list is ~7k rows; a single multi-row INSERT would blow
+        # Postgres's 65535-parameter limit, and the Core insert path does not apply the model's
+        # Python-side uuid default, so we set the id explicitly. Chunks keep each statement small
+        # and fast (no per-row ORM overhead, no timeout, no parameter overflow).
+        rows = [
+            {
+                "id": uuid.uuid4(),
+                "version_id": version.id,
+                "reference": entry.get("reference") or None,
+                "entity_type": entry.get("entity_type") or "unknown",
+                "primary_name": entry.get("primary_name") or "",
+                "search_names": entry.get("search_names") or [],
+                "aliases": entry.get("aliases") or [],
+                "dob": entry.get("dob") or None,
+                "place_of_birth": entry.get("place_of_birth") or None,
+                "citizenship": entry.get("citizenship") or None,
+                "address": entry.get("address") or None,
+                "listing_info": entry.get("listing_info") or None,
+                "raw": entry.get("raw"),
+            }
+            for entry in entries
+        ]
+        for start in range(0, len(rows), 500):
+            db.execute(insert(SanctionsEntry), rows[start : start + 500])
     db.commit()
     db.refresh(version)
     return version

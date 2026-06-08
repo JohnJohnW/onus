@@ -778,6 +778,25 @@ def test_report_rejects_cross_tenant_client(client):
     assert res.status_code == 404, res.text
 
 
+def test_large_sanctions_ingest(client):
+    """A list larger than one INSERT's parameter budget must ingest without a 500 - this is the
+    ~7k-row DFAT scale that broke in production (single-statement bulk insert overflowed the
+    Postgres parameter limit). The chunked, explicit-id insert handles it."""
+    _, token = _signup(client, "Big List Firm")
+    h = {"Authorization": f"Bearer {token}"}
+    lines = ["Reference,Name of Individual,Type"]
+    lines += [f"REF{i},Person Number {i},individual" for i in range(6000)]
+    csv_bytes = "\n".join(lines).encode("utf-8")
+    res = client.post(
+        "/sanctions/upload",
+        data={"list_type": "sanctions"},
+        files={"file": ("list.csv", csv_bytes, "text/csv")},
+        headers=h,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["entry_count"] >= 5000, res.json()
+
+
 def test_signup_rejects_invalid_email(client):
     res = client.post(
         "/auth/signup",

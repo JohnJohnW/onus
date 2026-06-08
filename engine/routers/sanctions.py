@@ -116,7 +116,14 @@ async def _fetch_and_ingest(db: Session, list_type: str) -> SanctionsStatusOut:
     current = _current(db, list_type)
     if current is not None and current.content_hash == content_hash(entries):
         return _status(db, list_type)  # unchanged - keep the current snapshot, no churn
-    import_version(db, source=source, origin="auto_fetch", entries=entries, list_type=list_type, note=f"Auto-fetched {label}")
+    try:
+        import_version(db, source=source, origin="auto_fetch", entries=entries, list_type=list_type, note=f"Auto-fetched {label}")
+    except Exception as exc:  # surface the real DB error instead of a bare 500
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not save the {label} list: {type(exc).__name__}: {str(exc)[:300]}",
+        )
     return _status(db, list_type)
 
 
