@@ -1,69 +1,61 @@
 # LinkedIn post drafts
 
-Two drafts below. The copy uses no colons, per request (the only one left is inside the demo
-URL). The live demo link is included. The repo stays private, so there is no GitHub link.
-Onus is a build and portfolio project, framed honestly as software, not legal advice. Wording
-reflects how AUSTRAC actually works - the program, risk assessment and evaluation are
-documents the firm keeps and produces on request, while SMRs and the compliance report are
-lodged through AUSTRAC Online.
+Value-led drafts for sharing the project. They focus on the problem and what Onus does for a
+firm, not the technology, and use no colons (the only one left is inside the demo URL). The
+demo link is included and the repo stays private. Onus is software, not legal advice.
 
 ---
 
 ## Main post (recommended)
 
-From 1 July 2026, Australia's AML/CTF regime extends to law firms, accountants and real
-estate agents - tens of thousands of small businesses that have never had a compliance
-function, now facing AUSTRAC obligations.
+From 1 July 2026, tens of thousands of Australian law firms, accountants and real estate
+agents fall under AML/CTF law for the first time. Overnight they have to run customer checks,
+watch for money laundering, file reports with AUSTRAC, and keep a documented compliance
+program, with serious penalties for getting it wrong.
 
-So I built Onus, an AI compliance officer for AML/CTF, designed for small Australian law firms
-under the Tranche 2 reforms.
+Most small firms have no compliance team, no spare time, and no interest in becoming AML
+experts. It is not why they went into law.
 
-It's not a chatbot bolted onto the legislation. It's a working system.
+So I built Onus, the compliance officer a small firm doesn't have to hire.
 
-- Builds and maintains the firm's AML/CTF program and ML/TF risk assessment
-- Runs customer due diligence with a before-you-act gate, beneficial-owner checks, and
-  sanctions/PEP screening
-- Monitors for suspicious activity and drafts the reports you lodge through AUSTRAC Online
-- Exports your program, risk assessment and evaluation as branded Word or PDF, the records you
-  keep and produce on request
-- Keeps audit-ready, 7-year records
+Onus sets up and runs the whole obligation for them. It builds the firm's compliance program
+and risk assessment, runs customer due diligence before they take on a matter, screens for
+sanctions and politically exposed persons, watches for suspicious activity, and prepares the
+reports AUSTRAC requires. The firm ends up compliant and audit-ready without compliance
+becoming someone's second job.
 
-The principle throughout is simple. AI drafts, a human approves. Agents propose, people
-dispose. Nothing is auto-lodged or auto-approved.
+The idea is simple. Hand the busywork to software, and keep a person accountable for the
+decisions. Onus drafts, a human approves, and nothing happens behind your back.
 
-What I'm most proud of is that the AI never returns walls of text. Every result is structured,
-a verdict plus ranked findings, each one with the next action a single click away.
+For a practice that bills by the hour, the value is hours handed back, and the confidence that
+a brand-new legal obligation is actually taken care of.
 
-Under the hood it's Next.js, FastAPI, and PostgreSQL with true row-level multi-tenancy, plus
-Claude for drafting, document understanding, and schema-validated structured output.
-
-Onus is software, not legal advice, a build exploring how far you can take "AI that does the
-work, a human who stays accountable" in a domain where correctness actually matters.
+Onus is software, not legal advice.
 
 Try the live demo at https://onus-web.vercel.app
 
-#AML #RegTech #Compliance #AI #LegalTech #Australia
+#AML #RegTech #Compliance #LegalTech #Australia
 
 ---
 
 ## Short variant
 
-Tranche 2 brings Australian law firms into the AML/CTF regime from 1 July 2026, and most small
-firms have no compliance function to meet it.
+From 1 July 2026, Australian law firms fall under AML/CTF law for the first time. New customer
+checks, monitoring, AUSTRAC reports, and a documented compliance program, with real penalties
+for getting it wrong.
 
-So I built Onus, an AI compliance officer that builds the AML/CTF program, runs customer due
-diligence, screens for sanctions and PEPs, and monitors for suspicious activity. It keeps the
-program, risk assessment and evaluation as branded Word or PDF records, and prepares the
-content you lodge through AUSTRAC Online.
+Most small firms have no compliance team and no time to become AML experts.
 
-The design principle is simple. AI drafts, a human approves. And the AI never returns a wall
-of text, every result is a verdict plus ranked findings, each with the next action one click
-away.
+So I built Onus, the compliance officer they don't have to hire. It sets up and runs the whole
+obligation for them, the program, the customer due diligence, the sanctions and PEP screening,
+the monitoring, and the reports for AUSTRAC, so a firm stays compliant without it becoming a
+second job. Onus drafts, a human approves.
 
-Built with Next.js, FastAPI, PostgreSQL (row-level multi-tenancy) and Claude.
+For a practice that bills by the hour, that means hours handed back and the confidence the new
+rules are handled.
 
-Software, not legal advice, a build about pairing real automation with real accountability.
+Onus is software, not legal advice.
 
 Try the live demo at https://onus-web.vercel.app
 
-#AML #RegTech #AI #LegalTech #Australia
+#AML #RegTech #Compliance #LegalTech #Australia
